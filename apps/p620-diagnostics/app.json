@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "app_id": "P620-DIAGNOSTICS",
+  "name": "P620 Diagnostics",
+  "version": "0.2.0",
+  "status": "PUBLIC_SOURCE_PRIVATE_RUNTIME",
+  "transport": "streamable-http",
+  "path": "/mcp",
+  "authentication": "BEARER_TOKEN_RUNTIME_SECRET",
+  "host_adapter_required": true,
+  "host_read_contract": "FIXED_EXTERNAL_HELPER_JSON_STDIN_STDOUT",
+  "read_only": true,
+  "arbitrary_shell": false,
+  "mutation_tools": false,
+  "tools": [
+    "connector_health",
+    "system_info",
+    "disk_usage",
+    "service_status",
+    "journal_read",
+    "process_list",
+    "socket_list",
+    "file_read",
+    "file_stat",
+    "dir_list",
+    "file_find",
+    "hash_file",
+    "git_read",
+    "sqlite_read_only"
+  ],
+  "secret_values_in_repository": false
+}
