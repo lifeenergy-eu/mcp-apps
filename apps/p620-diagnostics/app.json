@@ -1,39 +1,33 @@
 {
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "Private Infrastructure Access",
-  "version": "0.4.0",
-  "status": "OAUTH_RESOURCE_SERVER_SOURCE_READY",
+  "version": "0.5.0",
+  "status": "PRIVATE_CHATGPT_WEB_OAUTH_READY",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication_modes": [
     "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
-    "OAUTH_2_1_RESOURCE_SERVER"
+    "PRIVATE_OAUTH_2_1_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER"
   ],
-  "default_authentication": "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
+  "default_authentication": "PRIVATE_OAUTH_2_1_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER",
   "oauth": {
-    "role": "RESOURCE_SERVER_ONLY",
-    "authorization_server": "EXTERNAL_CONFIGURED_PROVIDER",
+    "role": "EMBEDDED_PRIVATE_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER",
+    "client_registration": "DYNAMIC_CLIENT_REGISTRATION",
+    "allowed_redirect_domains": [
+      "chatgpt.com",
+      "*.chatgpt.com",
+      "openai.com",
+      "*.openai.com"
+    ],
+    "authorization_code_flow": true,
+    "pkce": "S256",
+    "refresh_tokens": true,
+    "access_token_storage": "SHA256_HASHED_SQLITE_RUNTIME_ONLY",
+    "login": "SINGLE_OPERATOR_PASSWORD_RUNTIME_SECRET",
     "protected_resource_metadata": "SDK_GENERATED_RFC9728",
-    "token_validation": [
-      "signature",
-      "issuer",
-      "audience/resource",
-      "expiration",
-      "required scopes"
-    ],
-    "client_registration_compatibility": [
-      "CIMD",
-      "DCR",
-      "PREDEFINED_CLIENT_AS_AUTH_SERVER_SUPPORTS"
-    ],
-    "pkce_requirement": "AUTHORIZATION_SERVER_MUST_ADVERTISE_S256",
-    "required_runtime_env": [
-      "MCP_AUTH_MODE=oauth",
-      "MCP_OAUTH_ISSUER_URL",
-      "MCP_OAUTH_RESOURCE_URL",
-      "MCP_OAUTH_JWKS_URL",
-      "MCP_OAUTH_SCOPES"
+    "scopes": [
+      "infra.read"
     ],
     "secrets_in_repository": false
   },
@@ -59,7 +53,7 @@
     "sqlite_read_only"
   ],
   "secret_values_in_repository": false,
-  "product_data_path": "REMOTE_MCP_CLIENT_DIRECT_TO_HOST",
+  "product_data_path": "CHATGPT_WEB_DIRECT_HTTPS_TO_HOST",
   "cloudways_in_product_data_path": false,
   "remote_mcp": {
     "protocol": "streamable-http",
@@ -68,7 +62,7 @@
     "openai_plugin_compatible": true
   },
   "plugin_packaging": {
-    "current": "OAUTH_RESOURCE_SERVER_SOURCE_READY",
+    "current": "CHATGPT_WEB_CUSTOM_MCP_OAUTH_READY",
     "custom_ui_required": false,
     "public_directory_submission": "FUTURE_GATE"
   }

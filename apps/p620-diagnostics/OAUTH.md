@@ -1,45 +1,35 @@
-# OAuth 2.1 resource-server configuration
+# Private ChatGPT web OAuth
 
-Private Infrastructure Access uses the MCP server as an **OAuth resource server only**. It does not implement login, consent, client registration, or token issuance.
+Version 0.5 keeps the product path direct:
 
-Use an established OAuth/OpenID Connect provider that can satisfy the MCP authorization requirements.
+`ChatGPT web -> HTTPS /mcp -> host`
 
-## Runtime modes
+For the P620 host, the public endpoint is exposed only through Tailscale Funnel. Cloudways is not in MCP product traffic.
 
-### Bootstrap
+## Authentication
 
-`MCP_AUTH_MODE=bootstrap_bearer`
+The MCP process acts as both:
+- OAuth 2.1 authorization server for this private single-user deployment; and
+- MCP OAuth protected resource server.
 
-Keeps the existing host-local static bearer secret. This is the default until an OAuth provider is configured and accepted.
+It uses authorization-code flow with PKCE S256, DCR, refresh tokens and RFC 9728 protected-resource metadata.
 
-### OAuth
+DCR is restricted to HTTPS redirect URIs on ChatGPT/OpenAI domains. Authorization requires the host-local operator password. Access and refresh tokens are random opaque credentials; only SHA-256 token hashes are stored in the runtime SQLite database.
 
-`MCP_AUTH_MODE=oauth`
+## Runtime-only state
 
-Required environment:
+No secret belongs in this repository.
 
-- `MCP_OAUTH_ISSUER_URL` — exact authorization-server issuer.
-- `MCP_OAUTH_RESOURCE_URL` — canonical HTTPS MCP resource identifier, including the MCP path when that is the registered resource.
-- `MCP_OAUTH_JWKS_URL` — provider JWKS endpoint.
-- `MCP_OAUTH_SCOPES` — comma-separated scopes; default source convention is `infra.read`.
-- `MCP_OAUTH_ALGORITHMS` — optional comma-separated JWT algorithms; default `RS256`.
+P620 host adapter supplies:
+- `MCP_AUTH_MODE=oauth_private`
+- `MCP_OAUTH_ISSUER_URL=https://p620.taila88a6c.ts.net:8443`
+- `MCP_OAUTH_RESOURCE_URL=https://p620.taila88a6c.ts.net:8443/mcp`
+- `MCP_OAUTH_DB_PATH=/srv/project-brain/mcp-oauth/oauth.sqlite3`
+- `MCP_OAUTH_PASSWORD_FILE=/srv/project-brain/secrets/p620-mcp-oauth-password`
+- `MCP_OAUTH_SCOPES=infra.read`
 
-The server validates JWT signature, issuer, audience/resource, expiration and required scopes. Invalid credentials fail closed.
-
-## MCP / ChatGPT discovery
-
-When OAuth mode is enabled, MCP Python SDK authentication generates RFC 9728 Protected Resource Metadata for the configured resource and returns a `WWW-Authenticate` challenge on unauthenticated MCP requests.
-
-All tools advertise OAuth security metadata, including the back-compat `_meta.securitySchemes` mirror used by clients that still read it there.
-
-The external authorization server must publish standards-compliant OAuth/OIDC discovery, support authorization code + PKCE S256 and a ChatGPT-compatible client registration model such as CIMD or DCR.
+The operator password is generated/owned by the host adapter and must never be committed or copied into Project Brain.
 
 ## Security boundary
 
-OAuth changes **who may call the MCP tools**. It does not expand what those tools may do.
-
-- read-only helper remains the only host backend;
-- no arbitrary shell;
-- no mutation tool;
-- no token or secret is returned by any tool;
-- Cloudways remains outside the MCP product data path.
+OAuth controls who may call tools. It does not expand tool authority. The application remains read-only, delegates host reads to the fixed helper, exposes no arbitrary shell, and contains no mutation tools.
