@@ -1,40 +1,30 @@
 # ChatGPT / plugin readiness
 
-## Intended connection
+## Product path
 
-Private Infrastructure Access is a remote MCP application.
+`ChatGPT plugin -> HTTPS /mcp -> host MCP service -> fixed read-only host helper`
 
-For the P620 bootstrap host the intended product path is:
+For P620, Cloudways is not in this product path.
 
-`ChatGPT plugin -> HTTPS /mcp -> P620`
+## Current source stage
 
-Cloudways is not in this path.
+Version 0.4 adds a provider-neutral OAuth 2.1 **resource-server** mode while preserving the verified bootstrap bearer mode until runtime OAuth is configured.
 
-## Current transport
+The server:
+- exposes Streamable HTTP on `/mcp`;
+- uses SDK-native protected-resource discovery in OAuth mode;
+- verifies JWT signature, issuer, audience/resource, expiry and scopes;
+- advertises per-tool OAuth security metadata;
+- remains read-only with no arbitrary shell or mutation tools.
 
-- MCP transport: Streamable HTTP
-- MCP path: `/mcp`
-- tools: read-only
-- custom UI: not required
-- arbitrary shell: forbidden
-- mutation tools: none
+See `OAUTH.md` for runtime configuration.
 
-## Authentication stages
+## ChatGPT connection
 
-### Bootstrap runtime
+A supported ChatGPT surface can create a plugin from the remote MCP URL, select OAuth authentication, scan the tools and complete user authorization.
 
-The current P620 runtime uses a host-local static bearer secret. This is suitable for the verified private bootstrap service but is not the final public/plugin authentication model.
+The authorization server is external to this repository. Use an established identity provider rather than implementing login/token issuance inside this MCP app.
 
-### Plugin/public distribution gate
+## Compatibility
 
-Move the product authentication boundary to an OAuth-compatible remote MCP model supported by the target client. Credentials, authorization-server configuration and private host identity remain runtime configuration and must never be committed to this repository.
-
-## OpenAI integration target
-
-The app is designed so a supported ChatGPT surface can create a plugin directly from the remote MCP server URL, configure authentication, inspect the MCP tools and install the resulting plugin.
-
-Plan availability is a client/product concern and does not change this repository's direct MCP network architecture.
-
-## Compatibility path
-
-The source directory remains `apps/p620-diagnostics` during the bootstrap compatibility series because the P620 wrapper currently pins that path. Product identity is now **Private Infrastructure Access**. A later source migration may rename the directory only together with an exact-SHA host-wrapper update.
+The source directory remains `apps/p620-diagnostics` during bootstrap compatibility because the P620 wrapper pins that path. Product identity remains **Private Infrastructure Access**.

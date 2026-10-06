@@ -5,25 +5,27 @@ Public source repository for reusable Model Context Protocol applications develo
 ## Repository model
 
 - `apps/` contains product-facing MCP applications.
-- Product source is host-neutral. Host-specific deployment, credentials, private hostnames, firewall rules, Tailscale configuration and runtime secrets do **not** belong here.
-- Each app must expose explicit typed tools and fail closed by default.
-- Arbitrary shell execution is forbidden unless a future app explicitly defines and secures such a capability.
-- Remote MCP clients connect directly to the selected host endpoint. A host adapter may expose that endpoint by HTTPS/tunnel without introducing a separate application proxy.
+- Product source is host-neutral; host credentials, private hostnames, firewall policy and runtime secrets stay outside this repository.
+- Tools are explicit, typed and fail closed.
+- Arbitrary shell execution is forbidden unless a future product introduces a separately governed capability.
+- Remote MCP clients connect directly to the selected host endpoint.
 
-## Apps
+## Private Infrastructure Access
 
-### Private Infrastructure Access
+Current compatibility source path: `apps/p620-diagnostics`.
 
-Current source path: `apps/p620-diagnostics` (compatibility path during the bootstrap release series).
-
-Reusable authenticated, read-only infrastructure diagnostics MCP server. The product delegates host reads to a fixed external helper supplied by the host adapter; it does not implement filesystem, shell or mutation privileges itself.
+Authenticated read-only infrastructure diagnostics. Host reads are delegated to a fixed external helper supplied by the host adapter.
 
 First host adapter: `lifeenergy-eu/p620-ai-runtime`.
 
-Current P620 product data path:
+Product data path:
 
-`ChatGPT / MCP client -> remote HTTPS /mcp -> P620`
+`ChatGPT / MCP client -> remote HTTPS /mcp -> host`
 
-Cloudways is **not** part of this MCP product data path. Project Brain control/deploy and AI-runtime traffic use separate governed infrastructure.
+Cloudways is not part of this MCP product data path.
 
-The bootstrap runtime currently uses a static bearer secret. Public/plugin distribution is planned to use OAuth-compatible authentication without changing the read-only host diagnostic tool contract.
+Version 0.4 provides two auth modes:
+- bootstrap static bearer (default until migration);
+- OAuth 2.1 resource-server mode backed by an external standards-compliant identity provider.
+
+OAuth changes access control only; it does not weaken the read-only host boundary.

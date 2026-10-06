@@ -1,12 +1,42 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "Private Infrastructure Access",
-  "version": "0.3.0",
-  "status": "PUBLIC_SOURCE_PRIVATE_RUNTIME_PLUGIN_PREP",
+  "version": "0.4.0",
+  "status": "OAUTH_RESOURCE_SERVER_SOURCE_READY",
   "transport": "streamable-http",
   "path": "/mcp",
-  "authentication": "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
+  "authentication_modes": [
+    "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
+    "OAUTH_2_1_RESOURCE_SERVER"
+  ],
+  "default_authentication": "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
+  "oauth": {
+    "role": "RESOURCE_SERVER_ONLY",
+    "authorization_server": "EXTERNAL_CONFIGURED_PROVIDER",
+    "protected_resource_metadata": "SDK_GENERATED_RFC9728",
+    "token_validation": [
+      "signature",
+      "issuer",
+      "audience/resource",
+      "expiration",
+      "required scopes"
+    ],
+    "client_registration_compatibility": [
+      "CIMD",
+      "DCR",
+      "PREDEFINED_CLIENT_AS_AUTH_SERVER_SUPPORTS"
+    ],
+    "pkce_requirement": "AUTHORIZATION_SERVER_MUST_ADVERTISE_S256",
+    "required_runtime_env": [
+      "MCP_AUTH_MODE=oauth",
+      "MCP_OAUTH_ISSUER_URL",
+      "MCP_OAUTH_RESOURCE_URL",
+      "MCP_OAUTH_JWKS_URL",
+      "MCP_OAUTH_SCOPES"
+    ],
+    "secrets_in_repository": false
+  },
   "host_adapter_required": true,
   "host_read_contract": "FIXED_EXTERNAL_HELPER_JSON_STDIN_STDOUT",
   "read_only": true,
@@ -35,11 +65,10 @@
     "protocol": "streamable-http",
     "path": "/mcp",
     "direct_host_connection": true,
-    "openai_custom_mcp_compatible": true
+    "openai_plugin_compatible": true
   },
-  "target_authentication": "OAUTH_COMPATIBLE_REMOTE_MCP",
   "plugin_packaging": {
-    "current": "REMOTE_MCP_SERVER_READY",
+    "current": "OAUTH_RESOURCE_SERVER_SOURCE_READY",
     "custom_ui_required": false,
     "public_directory_submission": "FUTURE_GATE"
   }
