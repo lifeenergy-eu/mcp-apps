@@ -13,7 +13,7 @@ import uvicorn
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 DEFAULT_HELPER = "/usr/local/libexec/p620-debug-read"
 DEFAULT_TOKEN_FILE = "/srv/project-brain/secrets/p620-mcp.token"
 
@@ -57,9 +57,9 @@ security = TransportSecuritySettings(
 )
 
 mcp = FastMCP(
-    "p620-diagnostics",
+    "private-infrastructure-access",
     instructions=(
-        "Authenticated read-only infrastructure diagnostics. "
+        "Private Infrastructure Access: authenticated read-only infrastructure diagnostics. "
         "Every host read is delegated to the configured fixed helper. "
         "No arbitrary shell, mutation, secret reads, or generic command execution."
     ),
@@ -100,7 +100,9 @@ def connector_health() -> dict[str, Any]:
         "connector_version": VERSION,
         "transport": "streamable-http",
         "mcp_path": "/mcp",
-        "authentication": "bearer-token-required",
+        "authentication": "bootstrap-bearer-token-required",
+        "product_data_path": "remote-mcp-client-direct-to-host",
+        "cloudways_in_product_data_path": False,
         "read_only": True,
         "arbitrary_shell": False,
         "host_read_backend": HELPER,

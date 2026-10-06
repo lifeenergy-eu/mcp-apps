@@ -1,12 +1,24 @@
-# P620 Diagnostics architecture
+# Private Infrastructure Access architecture
 
 The application is intentionally split into two layers.
 
-1. **Product MCP layer (this repository)** — protocol surface, typed tools, bearer gate and generic helper invocation.
-2. **Host adapter layer** — supplied by the deployment target. On the P620 this is owned by `lifeenergy-eu/p620-ai-runtime`.
+1. **Product MCP layer (this repository)** — remote MCP protocol surface, typed read-only tools, authentication boundary and generic helper invocation.
+2. **Host adapter layer** — supplied by the deployment target. On the first P620 deployment this is owned by `lifeenergy-eu/p620-ai-runtime`.
 
-The product layer never receives generic shell authority. Every diagnostic operation maps to one named action implemented by the host helper. The P620 helper additionally owns path allowlists, secret-path denial, output redaction, query limits and fixed command construction.
+## Product data path
 
-Runtime secrets, concrete hostnames, Funnel configuration, sudoers and systemd units remain outside this public repository.
+The MCP client communicates directly with the host endpoint:
 
-A future public/multi-tenant release should replace the bootstrap static bearer token with OAuth 2.1 / MCP-compatible authorization without changing the host diagnostic tool contract.
+`ChatGPT / MCP client -> HTTPS streamable HTTP /mcp -> host MCP service -> fixed host read helper`
+
+For the P620 deployment, Cloudways is not a proxy, queue, gateway or dependency in this product data path.
+
+The existing Project Brain Cloudways-backed AI runtime data plane remains a **separate control/compute channel**. It continues to own governed Project Brain debug/deploy/AI jobs and does not gain authority over the direct MCP product surface.
+
+## Security boundary
+
+The product layer never receives generic shell authority. Every diagnostic operation maps to one named action implemented by the host helper. The P620 helper owns path allowlists, secret-path denial, output redaction, query limits and fixed command construction.
+
+Runtime secrets, concrete hostnames, Funnel/tunnel configuration, sudoers and systemd units remain outside this public repository.
+
+The bootstrap P620 release uses a static bearer token. A reusable ChatGPT/plugin release must move to OAuth-compatible authorization while preserving the same read-only tool boundary.

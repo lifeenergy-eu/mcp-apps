@@ -1,12 +1,12 @@
 {
-  "schema_version": "1.0",
-  "app_id": "P620-DIAGNOSTICS",
-  "name": "P620 Diagnostics",
-  "version": "0.2.0",
-  "status": "PUBLIC_SOURCE_PRIVATE_RUNTIME",
+  "schema_version": "1.1",
+  "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
+  "name": "Private Infrastructure Access",
+  "version": "0.3.0",
+  "status": "PUBLIC_SOURCE_PRIVATE_RUNTIME_PLUGIN_PREP",
   "transport": "streamable-http",
   "path": "/mcp",
-  "authentication": "BEARER_TOKEN_RUNTIME_SECRET",
+  "authentication": "BEARER_TOKEN_RUNTIME_SECRET_BOOTSTRAP",
   "host_adapter_required": true,
   "host_read_contract": "FIXED_EXTERNAL_HELPER_JSON_STDIN_STDOUT",
   "read_only": true,
@@ -28,5 +28,19 @@
     "git_read",
     "sqlite_read_only"
   ],
-  "secret_values_in_repository": false
+  "secret_values_in_repository": false,
+  "product_data_path": "REMOTE_MCP_CLIENT_DIRECT_TO_HOST",
+  "cloudways_in_product_data_path": false,
+  "remote_mcp": {
+    "protocol": "streamable-http",
+    "path": "/mcp",
+    "direct_host_connection": true,
+    "openai_custom_mcp_compatible": true
+  },
+  "target_authentication": "OAUTH_COMPATIBLE_REMOTE_MCP",
+  "plugin_packaging": {
+    "current": "REMOTE_MCP_SERVER_READY",
+    "custom_ui_required": false,
+    "public_directory_submission": "FUTURE_GATE"
+  }
 }
