@@ -54,7 +54,7 @@ OAUTH_SCOPES = _csv("MCP_OAUTH_SCOPES", "infra.read") if AUTH_MODE == "oauth_pri
 
 
 class StoredAuthorizationCode(AuthorizationCode):
-    code_value: str
+    pass
 
 
 class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationCode, RefreshToken, AccessToken]):
@@ -199,7 +199,7 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
             body = json.loads(row["body_json"])
             code = secrets.token_urlsafe(32)
             code_body = {
-                "code_value": code,
+                "code": code,
                 "scopes": body["scopes"],
                 "expires_at": now + AUTH_CODE_TTL,
                 "client_id": row["client_id"],
@@ -252,7 +252,7 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
         self, client: OAuthClientInformationFull, authorization_code: StoredAuthorizationCode
     ) -> OAuthToken:
         with self._connect() as con:
-            con.execute("DELETE FROM codes WHERE code=?", (authorization_code.code_value,))
+            con.execute("DELETE FROM codes WHERE code=?", (authorization_code.code,))
         return self._issue_pair(
             str(client.client_id),
             authorization_code.scopes,
