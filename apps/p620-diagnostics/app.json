@@ -2,8 +2,8 @@
   "schema_version": "1.3",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "Private Infrastructure Access",
-  "version": "0.5.0",
-  "status": "PRIVATE_CHATGPT_WEB_OAUTH_READY",
+  "version": "0.5.1",
+  "status": "PRIVATE_CHATGPT_WEB_PREDEFINED_OAUTH_CLIENT_READY",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication_modes": [
@@ -29,7 +29,11 @@
     "scopes": [
       "infra.read"
     ],
-    "secrets_in_repository": false
+    "secrets_in_repository": false,
+    "predefined_private_client": true,
+    "predefined_client_auth_method": "client_secret_post",
+    "predefined_client_redirect_source": "HOST_RUNTIME_ENV",
+    "predefined_client_credentials": "HOST_RUNTIME_SECRET_FILES_ONLY"
   },
   "host_adapter_required": true,
   "host_read_contract": "FIXED_EXTERNAL_HELPER_JSON_STDIN_STDOUT",
@@ -62,7 +66,7 @@
     "openai_plugin_compatible": true
   },
   "plugin_packaging": {
-    "current": "CHATGPT_WEB_CUSTOM_MCP_OAUTH_READY",
+    "current": "CHATGPT_WEB_CUSTOM_MCP_PREDEFINED_OAUTH_CLIENT_READY",
     "custom_ui_required": false,
     "public_directory_submission": "FUTURE_GATE"
   }

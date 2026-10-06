@@ -33,3 +33,10 @@ The operator password is generated/owned by the host adapter and must never be c
 ## Security boundary
 
 OAuth controls who may call tools. It does not expand tool authority. The application remains read-only, delegates host reads to the fixed helper, exposes no arbitrary shell, and contains no mutation tools.
+
+
+## ChatGPT web predefined client
+
+For ChatGPT web surfaces where the plugin builder exposes only "Use your own OAuth client ID", the host adapter may seed one private predefined OAuth client. The client ID, client secret and exact ChatGPT callback URI are runtime configuration only. They are not committed to this repository.
+
+The token endpoint authentication method for this private client is `client_secret_post`.

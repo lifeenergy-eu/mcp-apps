@@ -30,6 +30,8 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 DEFAULT_DB = "/srv/project-brain/mcp-oauth/oauth.sqlite3"
 DEFAULT_PASSWORD_FILE = "/srv/project-brain/secrets/p620-mcp-oauth-password"
+DEFAULT_CLIENT_ID_FILE = "/srv/project-brain/secrets/p620-mcp-oauth-client-id"
+DEFAULT_CLIENT_SECRET_FILE = "/srv/project-brain/secrets/p620-mcp-oauth-client-secret"
 ACCESS_TTL = 3600
 REFRESH_TTL = 30 * 24 * 3600
 AUTH_CODE_TTL = 300
@@ -58,7 +60,7 @@ class StoredAuthorizationCode(AuthorizationCode):
 
 
 class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationCode, RefreshToken, AccessToken]):
-    def __init__(self, issuer: str, resource: str, db_path: str, password_file: str, scopes: list[str]) -> None:
+    def __init__(self, issuer: str, resource: str, db_path: str, password_file: str, scopes: list[str], static_client_id_file: str = "", static_client_secret_file: str = "", static_redirect_uri: str = "") -> None:
         self.issuer = issuer.rstrip("/")
         self.resource = resource.rstrip("/")
         self.db_path = Path(db_path)
@@ -70,6 +72,8 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
         except PermissionError:
             pass
         self._init_db()
+        if static_client_id_file and static_client_secret_file and static_redirect_uri:
+            self._seed_static_client(static_client_id_file, static_client_secret_file, static_redirect_uri)
 
     def _connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(self.db_path, timeout=5)
@@ -116,6 +120,31 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
     @staticmethod
     def _hash_token(token: str) -> str:
         return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    def _seed_static_client(self, client_id_file: str, client_secret_file: str, redirect_uri: str) -> None:
+        client_id = Path(client_id_file).read_text(encoding="utf-8").strip()
+        client_secret = Path(client_secret_file).read_text(encoding="utf-8").strip()
+        if len(client_id) < 16 or len(client_secret) < 32:
+            raise RuntimeError("MCP_OAUTH_STATIC_CLIENT_INVALID")
+        if not self._allowed_redirect(redirect_uri):
+            raise RuntimeError("MCP_OAUTH_STATIC_REDIRECT_INVALID")
+        info = OAuthClientInformationFull(
+            client_id=client_id,
+            client_secret=client_secret,
+            client_id_issued_at=int(time.time()),
+            client_secret_expires_at=None,
+            redirect_uris=[AnyUrl(redirect_uri)],
+            token_endpoint_auth_method="client_secret_post",
+            grant_types=["authorization_code", "refresh_token"],
+            response_types=["code"],
+            scope=" ".join(self.scopes),
+            client_name="ChatGPT Private Infrastructure Access",
+        )
+        with self._connect() as con:
+            con.execute(
+                "INSERT OR REPLACE INTO clients(client_id,body_json,created_at) VALUES(?,?,?)",
+                (client_id, info.model_dump_json(), int(time.time())),
+            )
 
     @staticmethod
     def _allowed_redirect(uri: str) -> bool:
@@ -324,6 +353,9 @@ if AUTH_MODE == "oauth_private":
     resource = _optional("MCP_OAUTH_RESOURCE_URL")
     db_path = _optional("MCP_OAUTH_DB_PATH", DEFAULT_DB)
     password_file = _optional("MCP_OAUTH_PASSWORD_FILE", DEFAULT_PASSWORD_FILE)
+    static_client_id_file = _optional("MCP_OAUTH_STATIC_CLIENT_ID_FILE", DEFAULT_CLIENT_ID_FILE)
+    static_client_secret_file = _optional("MCP_OAUTH_STATIC_CLIENT_SECRET_FILE", DEFAULT_CLIENT_SECRET_FILE)
+    static_redirect_uri = _optional("MCP_OAUTH_STATIC_REDIRECT_URI")
     if not issuer or not resource:
         raise RuntimeError("MCP_OAUTH_CONFIGURATION_INCOMPLETE")
     AUTH_SETTINGS = AuthSettings(
@@ -338,7 +370,7 @@ if AUTH_MODE == "oauth_private":
         ),
         revocation_options=RevocationOptions(enabled=True),
     )
-    AUTH_PROVIDER = PrivateOAuthProvider(issuer, resource, db_path, password_file, OAUTH_SCOPES)
+    AUTH_PROVIDER = PrivateOAuthProvider(issuer, resource, db_path, password_file, OAUTH_SCOPES, static_client_id_file, static_client_secret_file, static_redirect_uri)
 
 
 async def oauth_login_handler(request: Request) -> Response:
