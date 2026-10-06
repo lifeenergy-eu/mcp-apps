@@ -63,6 +63,12 @@ mcp = FastMCP(
         "Every host read is delegated to the configured fixed helper. "
         "No arbitrary shell, mutation, secret reads, or generic command execution."
     ),
+    host=HOST,
+    port=PORT,
+    streamable_http_path="/mcp",
+    json_response=True,
+    stateless_http=True,
+    transport_security=security,
 )
 
 def helper_call(action: str, **params: Any) -> dict[str, Any]:
@@ -195,12 +201,7 @@ class BearerGate:
         await self.app(scope, receive, send)
 
 def main() -> None:
-    app = mcp.streamable_http_app(
-        streamable_http_path="/mcp",
-        json_response=True,
-        stateless_http=True,
-        transport_security=security,
-    )
+    app = mcp.streamable_http_app()
     uvicorn.run(BearerGate(app), host=HOST, port=PORT, log_level="info")
 
 if __name__ == "__main__":
