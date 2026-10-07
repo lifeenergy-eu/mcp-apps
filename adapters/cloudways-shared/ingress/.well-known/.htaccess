@@ -2,5 +2,7 @@ Options -Indexes
 RewriteEngine On
 
 # Flat metadata handlers avoid Apache directory redirects during MCP/OAuth discovery.
+RewriteRule ^oauth-authorization-server/pb-control-mcp/?$ oauth-authorization-server-control.php [L,QSA]
+RewriteRule ^oauth-protected-resource/pb-control-mcp/mcp/?$ oauth-protected-resource-control.php [L,QSA]
 RewriteRule ^oauth-authorization-server(?:/pb-mcp)?/?$ oauth-authorization-server.php [L,QSA]
 RewriteRule ^oauth-protected-resource/pb-mcp/mcp/?$ oauth-protected-resource.php [L,QSA]

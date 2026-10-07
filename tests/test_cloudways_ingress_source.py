@@ -27,6 +27,9 @@ class CloudwaysIngressSourceTests(unittest.TestCase):
         self.assertIn("MCP_INGRESS_HOST_DENIED", source)
         self.assertIn("mcp-session-id", source)
         self.assertIn("last-event-id", source)
+        control = (ROOT / "adapters/cloudways-shared/ingress/pb-control-mcp/index.php").read_text()
+        self.assertIn("http://127.0.0.1:8793", control)
+        self.assertIn("CONTROL_MCP_INGRESS_PATH_DENIED", control)
 
     def test_well_known_metadata_uses_flat_handlers(self) -> None:
         ingress = ROOT / "adapters/cloudways-shared/ingress"

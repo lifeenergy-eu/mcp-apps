@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "app_id": "PROJECT-BRAIN-CONTROLLED-EXECUTION",
+  "name": "Project Brain Controlled Execution",
+  "version": "0.1.0",
+  "status": "SOURCE_IMPLEMENTED_PENDING_RUNTIME_ACCEPTANCE",
+  "transport": "streamable-http",
+  "path": "/mcp",
+  "authentication": "PRIVATE_OAUTH_2_1_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER",
+  "oauth": {
+    "client_registration": "DYNAMIC_CLIENT_REGISTRATION",
+    "allowed_redirect_domains": [
+      "chatgpt.com",
+      "*.chatgpt.com",
+      "openai.com",
+      "*.openai.com"
+    ],
+    "authorization_code_flow": true,
+    "pkce": "S256",
+    "refresh_tokens": true,
+    "scopes": [
+      "control.execute"
+    ],
+    "secrets_in_repository": false
+  },
+  "execution_authority": false,
+  "execution_backend": "FIXED_PROJECT_BRAIN_HELPER_TO_LOCAL_MACHINE_INTAKE",
+  "read_mcp_separate": true,
+  "arbitrary_shell": false,
+  "caller_selected_runner": false,
+  "caller_selected_target": false,
+  "caller_selected_filesystem_root": false,
+  "raw_sql": false,
+  "raw_http": false,
+  "tools": [
+    "connector_health",
+    "deploy_registered_source",
+    "run_registered_application_workflow",
+    "run_registered_database_workflow",
+    "execution_status"
+  ],
+  "public_ingress": {
+    "mode": "DEDICATED_PATH_PHP_LOOPBACK_BRIDGE",
+    "https_port": 443,
+    "public_prefix": "/pb-control-mcp",
+    "backend_bind": "127.0.0.1:8793",
+    "source": "adapters/cloudways-shared/ingress/pb-control-mcp",
+    "activation": "PROJECT_BRAIN_RUNTIME_ACCEPTANCE_REQUIRED"
+  }
+}

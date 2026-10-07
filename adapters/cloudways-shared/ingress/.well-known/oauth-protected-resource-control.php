@@ -1,0 +1,1 @@
+<?php\ndeclare(strict_types=1);\nrequire dirname(__DIR__) . '/pb-control-mcp/index.php';\n

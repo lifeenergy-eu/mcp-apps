@@ -155,7 +155,7 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
             grant_types=["authorization_code", "refresh_token"],
             response_types=["code"],
             scope=" ".join(self.scopes),
-            client_name="Private Infrastructure Access",
+            client_name=_optional("MCP_OAUTH_PRODUCT_NAME", "Private Infrastructure Access"),
         )
         with self._connect() as con:
             con.execute(
@@ -404,12 +404,14 @@ AUTH_MODE, OAUTH_SCOPES, AUTH_SETTINGS, AUTH_PROVIDER = build_auth()
 async def oauth_login_handler(request: Request) -> Response:
     if AUTH_PROVIDER is None:
         return Response(status_code=404)
+    product_name = html.escape(_optional("MCP_OAUTH_PRODUCT_NAME", "Private Infrastructure Access"))
+    login_description = html.escape(_optional("MCP_OAUTH_LOGIN_DESCRIPTION", "Authorize ChatGPT read-only infrastructure diagnostics."))
     if request.method == "GET":
         tx = request.query_params.get("tx", "")
         safe_tx = html.escape(tx, quote=True)
         page = f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Private Infrastructure Access</title></head><body style="font-family:system-ui;max-width:420px;margin:12vh auto;padding:24px">
-<h2>Private Infrastructure Access</h2><p>Authorize ChatGPT read-only infrastructure diagnostics.</p>
+<title>{product_name}</title></head><body style="font-family:system-ui;max-width:420px;margin:12vh auto;padding:24px">
+<h2>{product_name}</h2><p>{login_description}</p>
 <form method="post"><input type="hidden" name="tx" value="{safe_tx}">
 <label>Operator password</label><br><input name="password" type="password" autocomplete="current-password" required style="width:100%;padding:10px;margin:8px 0 16px">
 <button type="submit" style="padding:10px 18px">Authorize</button></form></body></html>"""
