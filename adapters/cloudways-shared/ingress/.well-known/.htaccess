@@ -1,0 +1,5 @@
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^oauth-authorization-server(?:/pb-mcp)?/?$ oauth-authorization-server/index.php [L,QSA]
+RewriteRule ^oauth-protected-resource/pb-mcp/mcp/?$ oauth-protected-resource/index.php [L,QSA]

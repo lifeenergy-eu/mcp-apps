@@ -35,7 +35,7 @@ function pb_mcp_backend_path(string $path, string $prefix): ?string {
     }
     if ($path === '/.well-known/oauth-protected-resource/mcp' ||
         $path === '/.well-known/oauth-protected-resource' . $prefix . '/mcp') {
-        return '/.well-known/oauth-protected-resource/mcp';
+        return '/.well-known/oauth-protected-resource' . $prefix . '/mcp';
     }
     return null;
 }
@@ -96,8 +96,8 @@ $query = (string)($_SERVER['QUERY_STRING'] ?? '');
 $url = PB_MCP_BACKEND . $backendPath . ($query !== '' ? '?' . $query : '');
 
 $allowedResponseHeaders = [
-    'content-type', 'www-authenticate', 'location', 'cache-control', 'pragma',
-    'expires', 'allow', 'mcp-session-id', 'access-control-allow-origin',
+    'content-type', 'www-authenticate', 'location',
+    'allow', 'mcp-session-id', 'access-control-allow-origin',
     'access-control-allow-methods', 'access-control-allow-headers',
     'access-control-expose-headers',
 ];
@@ -141,7 +141,10 @@ curl_setopt_array($ch, [
                         header($name . ': ' . $value, false);
                     }
                 }
-                header('X-PB-MCP-Ingress: cloudways-loopback-v2');
+                header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                header('X-PB-MCP-Ingress: cloudways-loopback-v3');
                 header('X-Accel-Buffering: no');
                 $headersCommitted = true;
             }

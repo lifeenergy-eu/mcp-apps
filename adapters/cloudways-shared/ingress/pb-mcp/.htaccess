@@ -1,9 +1,8 @@
 Options -Indexes
 RewriteEngine On
+
 RewriteCond %{HTTP:Authorization} ^(.+)$
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
 RewriteRule ^$ index.php [L,QSA]
 RewriteRule ^(mcp|authorize|token|register|revoke|oauth/login|\.well-known/oauth-authorization-server)/?$ index.php [L,QSA]
-<FilesMatch "^(?!index\.php$).*">
-    Require all denied
-</FilesMatch>
