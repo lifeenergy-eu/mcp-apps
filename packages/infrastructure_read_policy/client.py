@@ -64,6 +64,10 @@ class FixedHelperClient:
             raise HelperClientError("MCP_READ_HELPER_INVALID_RESPONSE") from exc
         if proc.returncode != 0 or body.get("status") != "PASS":
             raise HelperClientError(str(body.get("code") or "MCP_READ_HELPER_FAILED"))
-        if body.get("read_only") is not True or body.get("mutation") is not False:
+        if body.get("read_only") is not True:
+            raise HelperClientError("MCP_READ_HELPER_POLICY_INVARIANT_FAILED")
+        if body.get("mutation") not in (None, False):
+            raise HelperClientError("MCP_READ_HELPER_POLICY_INVARIANT_FAILED")
+        if body.get("secret_values_emitted") not in (None, False):
             raise HelperClientError("MCP_READ_HELPER_POLICY_INVARIANT_FAILED")
         return body

@@ -162,6 +162,8 @@ def _run(argv: list[str], timeout: int = 20, accepted: set[int] | None = None) -
     accepted = accepted or {0}
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, shell=False, env={"PATH": "/usr/local/bin:/usr/bin:/bin", "LC_ALL": "C"})
+    except FileNotFoundError as exc:
+        raise PolicyError("HOST_CAPABILITY_UNAVAILABLE", {"executable": Path(argv[0]).name}) from exc
     except subprocess.TimeoutExpired as exc:
         raise PolicyError("HOST_COMMAND_TIMEOUT") from exc
     if proc.returncode not in accepted:
@@ -172,6 +174,17 @@ def _run(argv: list[str], timeout: int = 20, accepted: set[int] | None = None) -
         "stderr": redact_text((proc.stderr or "")[:100_000]),
     }
 
+
+
+def _unavailable_output(result: dict[str, Any]) -> bool:
+    text = ((result.get("stdout") or "") + "\n" + (result.get("stderr") or "")).lower()
+    return any(marker in text for marker in (
+        "permission denied",
+        "access denied",
+        "not permitted",
+        "failed to open journal",
+        "no journal files were opened",
+    ))
 
 def _system_info(_: RuntimePolicy, __: dict[str, Any]) -> dict[str, Any]:
     uname = _run(["/usr/bin/uname", "-srm"])
@@ -200,6 +213,8 @@ def _service_status(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, 
             "/bin/systemctl", "show", unit, "--no-pager",
             "--property=Id,LoadState,ActiveState,SubState,UnitFileState,MainPID",
         ], accepted={0, 1, 3, 4})
+        if _unavailable_output(result):
+            raise PolicyError("HOST_CAPABILITY_UNAVAILABLE", {"capability": "service_status"})
         out[unit] = result
     return {"units": out}
 
@@ -222,7 +237,10 @@ def _journal_read(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, An
         if len(until) > 80:
             raise PolicyError("UNTIL_INVALID")
         argv.extend(["--until", until])
-    return _run(argv, timeout=30, accepted={0, 1})
+    result = _run(argv, timeout=30, accepted={0, 1})
+    if _unavailable_output(result):
+        raise PolicyError("HOST_CAPABILITY_UNAVAILABLE", {"capability": "journal_read"})
+    return result
 
 
 def _process_list(_: RuntimePolicy, __: dict[str, Any]) -> dict[str, Any]:
