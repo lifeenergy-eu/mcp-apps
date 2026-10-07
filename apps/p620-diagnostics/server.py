@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
-for candidate in (HERE.parent.parent / "packages", HERE / "packages"):
+for candidate in (HERE.parent / "packages", HERE / "packages"):
     if candidate.is_dir():
         sys.path.insert(0, str(candidate))
         break
