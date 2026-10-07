@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
 class CloudwaysIngressSourceTests(unittest.TestCase):
     def test_target_public_urls_are_fixed(self) -> None:
         mag = json.loads((ROOT / "adapters/cloudways-magento/profile.json").read_text())
@@ -26,6 +27,20 @@ class CloudwaysIngressSourceTests(unittest.TestCase):
         self.assertIn("MCP_INGRESS_HOST_DENIED", source)
         self.assertIn("mcp-session-id", source)
         self.assertIn("last-event-id", source)
+
+    def test_well_known_metadata_uses_flat_handlers(self) -> None:
+        ingress = ROOT / "adapters/cloudways-shared/ingress"
+        htaccess = (ingress / ".well-known/.htaccess").read_text()
+        self.assertIn("oauth-authorization-server.php", htaccess)
+        self.assertIn("oauth-protected-resource.php", htaccess)
+
+        self.assertFalse((ingress / ".well-known/oauth-authorization-server").exists())
+        self.assertFalse((ingress / ".well-known/oauth-protected-resource").exists())
+
+        for name in ("oauth-authorization-server.php", "oauth-protected-resource.php"):
+            source = (ingress / ".well-known" / name).read_text()
+            self.assertIn("require dirname(__DIR__) . '/pb-mcp/index.php';", source)
+
 
 if __name__ == "__main__":
     unittest.main()
