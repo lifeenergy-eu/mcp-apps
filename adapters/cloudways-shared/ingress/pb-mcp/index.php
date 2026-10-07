@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 const PB_MCP_BACKEND = 'http://127.0.0.1:8792';
 const PB_MCP_MAX_REQUEST_BYTES = 2097152;
-const PB_MCP_MAX_RESPONSE_BYTES = 8388608;
 
 $targets = [
     'ai-runtime.larimarcode.com' => '/pb-mcp',
@@ -53,7 +52,7 @@ function pb_mcp_request_headers(): array {
     $forward = [];
     foreach ([
         'authorization', 'accept', 'accept-language', 'content-type', 'origin',
-        'referer', 'user-agent', 'mcp-protocol-version', 'mcp-session-id',
+        'referer', 'user-agent', 'mcp-protocol-version', 'mcp-session-id', 'last-event-id',
     ] as $name) {
         if (isset($normalized[$name]) && $normalized[$name] !== '') {
             $forward[] = $name . ': ' . $normalized[$name];
@@ -96,7 +95,16 @@ if ($body === false || strlen($body) > PB_MCP_MAX_REQUEST_BYTES) {
 $query = (string)($_SERVER['QUERY_STRING'] ?? '');
 $url = PB_MCP_BACKEND . $backendPath . ($query !== '' ? '?' . $query : '');
 
+$allowedResponseHeaders = [
+    'content-type', 'www-authenticate', 'location', 'cache-control', 'pragma',
+    'expires', 'allow', 'mcp-session-id', 'access-control-allow-origin',
+    'access-control-allow-methods', 'access-control-allow-headers',
+    'access-control-expose-headers',
+];
 $responseHeaders = [];
+$responseStatus = 502;
+$headersCommitted = false;
+
 $ch = curl_init($url);
 if ($ch === false) {
     pb_mcp_fail(502, 'MCP_INGRESS_BACKEND_UNAVAILABLE');
@@ -110,18 +118,46 @@ $forwardHeaders[] = 'X-Forwarded-Prefix: ' . $prefix;
 curl_setopt_array($ch, [
     CURLOPT_CUSTOMREQUEST => $method,
     CURLOPT_HTTPHEADER => $forwardHeaders,
-    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_RETURNTRANSFER => false,
     CURLOPT_FOLLOWLOCATION => false,
     CURLOPT_CONNECTTIMEOUT => 3,
-    CURLOPT_TIMEOUT => 65,
+    CURLOPT_TIMEOUT => 0,
+    CURLOPT_LOW_SPEED_LIMIT => 1,
+    CURLOPT_LOW_SPEED_TIME => 90,
     CURLOPT_PROXY => '',
-    CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+    CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders, &$responseStatus, &$headersCommitted, $allowedResponseHeaders): int {
         $trim = trim($line);
-        if ($trim !== '' && str_contains($trim, ':')) {
+        if (preg_match('#^HTTP/\\S+\\s+(\\d{3})#i', $trim, $m)) {
+            $responseStatus = (int)$m[1];
+            $responseHeaders = [];
+            $headersCommitted = false;
+            return strlen($line);
+        }
+        if ($trim === '') {
+            if (!$headersCommitted && $responseStatus >= 100) {
+                http_response_code($responseStatus);
+                foreach ($responseHeaders as [$name, $value]) {
+                    if (in_array($name, $allowedResponseHeaders, true)) {
+                        header($name . ': ' . $value, false);
+                    }
+                }
+                header('X-PB-MCP-Ingress: cloudways-loopback-v2');
+                header('X-Accel-Buffering: no');
+                $headersCommitted = true;
+            }
+            return strlen($line);
+        }
+        if (str_contains($trim, ':')) {
             [$name, $value] = array_map('trim', explode(':', $trim, 2));
             $responseHeaders[] = [strtolower($name), $value];
         }
         return strlen($line);
+    },
+    CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk): int {
+        echo $chunk;
+        if (function_exists('ob_flush')) @ob_flush();
+        flush();
+        return strlen($chunk);
     },
 ]);
 if ($method === 'HEAD') {
@@ -129,27 +165,14 @@ if ($method === 'HEAD') {
 } elseif ($body !== '' || in_array($method, ['POST', 'DELETE'], true)) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
-$responseBody = curl_exec($ch);
-$status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+
+$ok = curl_exec($ch);
 $errno = curl_errno($ch);
+$status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 curl_close($ch);
-if ($errno !== 0 || $responseBody === false || $status < 100) {
-    pb_mcp_fail(502, 'MCP_INGRESS_BACKEND_UNAVAILABLE');
-}
-if (strlen((string)$responseBody) > PB_MCP_MAX_RESPONSE_BYTES) {
-    pb_mcp_fail(502, 'MCP_INGRESS_RESPONSE_TOO_LARGE');
-}
-http_response_code($status);
-$allowedResponseHeaders = [
-    'content-type', 'www-authenticate', 'location', 'cache-control', 'pragma',
-    'expires', 'allow', 'mcp-session-id', 'access-control-allow-origin',
-    'access-control-allow-methods', 'access-control-allow-headers',
-    'access-control-expose-headers',
-];
-foreach ($responseHeaders as [$name, $value]) {
-    if (in_array($name, $allowedResponseHeaders, true)) {
-        header($name . ': ' . $value, false);
+if ($ok === false || $errno !== 0 || $status < 100) {
+    if (!$headersCommitted) {
+        pb_mcp_fail(502, 'MCP_INGRESS_BACKEND_UNAVAILABLE');
     }
+    exit;
 }
-header('X-PB-MCP-Ingress: cloudways-loopback-v1');
-echo $responseBody;

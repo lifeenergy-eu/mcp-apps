@@ -15,12 +15,17 @@ class CloudwaysIngressSourceTests(unittest.TestCase):
         self.assertEqual(mag["public_ingress"]["backend_bind"], "127.0.0.1:8792")
         self.assertEqual(wp["public_ingress"]["backend_bind"], "127.0.0.1:8792")
 
-    def test_bridge_is_fixed_loopback_and_path_allowlisted(self) -> None:
+    def test_bridge_is_fixed_loopback_path_allowlisted_and_streaming(self) -> None:
         source = (ROOT / "adapters/cloudways-shared/ingress/pb-mcp/index.php").read_text()
         self.assertIn("http://127.0.0.1:8792", source)
+        self.assertIn("CURLOPT_RETURNTRANSFER => false", source)
+        self.assertIn("CURLOPT_WRITEFUNCTION", source)
+        self.assertIn("X-Accel-Buffering: no", source)
         self.assertNotIn("CURLOPT_FOLLOWLOCATION => true", source)
         self.assertIn("MCP_INGRESS_PATH_DENIED", source)
         self.assertIn("MCP_INGRESS_HOST_DENIED", source)
+        self.assertIn("mcp-session-id", source)
+        self.assertIn("last-event-id", source)
 
 if __name__ == "__main__":
     unittest.main()
