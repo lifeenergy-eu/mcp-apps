@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "status": "SOURCE_PROFILE_RUNTIME_BINDING_REQUIRED",
+  "runtime_binding": {
+    "allowed_roots": "MCP_ALLOWED_ROOTS_JSON",
+    "allowed_git_roots": "MCP_ALLOWED_GIT_ROOTS_JSON",
+    "allowed_services": "MCP_ALLOWED_SERVICES_JSON",
+    "allowed_sqlite_paths": "MCP_ALLOWED_SQLITE_PATHS_JSON",
+    "caller_may_expand_allowlists": false
+  },
+  "security": {
+    "realpath_containment_required": true,
+    "symlink_escape_denied": true,
+    "sensitive_config_denied": true,
+    "process_arguments_returned": false,
+    "process_environment_returned": false,
+    "git_remote_or_config_returned": false,
+    "sqlite_mode": "READ_ONLY_URI_PLUS_QUERY_ONLY",
+    "arbitrary_shell": false,
+    "mutation": false,
+    "deploy": false,
+    "sudo": false
+  },
+  "profile_id": "CLOUDWAYS_WORDPRESS_INFRA_READ_V1",
+  "target_id": "SERVER-CLOUDWAYS-WORDPRESS",
+  "scope": "Canonical registered SYSTEM-WORDPRESS installation roots only.",
+  "runtime_root_rule": "Materialize exact roots from current systems/wordpress.json installations; generic PHP runtimes remain excluded unless explicitly enrolled."
+}

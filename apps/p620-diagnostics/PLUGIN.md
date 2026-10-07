@@ -1,30 +1,17 @@
 # ChatGPT / plugin readiness
 
-## Product path
+Product path:
 
-`ChatGPT plugin -> HTTPS /mcp -> host MCP service -> fixed read-only host helper`
+`ChatGPT web -> HTTPS /mcp -> P620 MCP service -> fixed read-only P620 helper`
 
-For P620, Cloudways is not in this product path.
+Version 0.6 imports reusable OAuth and read-tool packages from the repository-level `packages/` tree while preserving the P620 host adapter boundary.
 
-## Current source stage
-
-Version 0.4 adds a provider-neutral OAuth 2.1 **resource-server** mode while preserving the verified bootstrap bearer mode until runtime OAuth is configured.
-
-The server:
+The MCP surface:
 - exposes Streamable HTTP on `/mcp`;
-- uses SDK-native protected-resource discovery in OAuth mode;
-- verifies JWT signature, issuer, audience/resource, expiry and scopes;
-- advertises per-tool OAuth security metadata;
-- remains read-only with no arbitrary shell or mutation tools.
+- supports private OAuth 2.1 authorization code + PKCE S256;
+- supports Dynamic Client Registration and refresh tokens;
+- advertises the `infra.read` scope;
+- exposes exactly the common 14 read-only infrastructure tools;
+- exposes no arbitrary shell, mutation or deploy tools.
 
-See `OAUTH.md` for runtime configuration.
-
-## ChatGPT connection
-
-A supported ChatGPT surface can create a plugin from the remote MCP URL, select OAuth authentication, scan the tools and complete user authorization.
-
-The authorization server is external to this repository. Use an established identity provider rather than implementing login/token issuance inside this MCP app.
-
-## Compatibility
-
-The source directory remains `apps/p620-diagnostics` during bootstrap compatibility because the P620 wrapper pins that path. Product identity remains **Private Infrastructure Access**.
+The P620 deployment wrapper must materialize both `apps/p620-diagnostics` and the required shared packages from the same exact `mcp-apps` SHA.

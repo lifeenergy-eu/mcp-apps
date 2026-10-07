@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "app_id": "CLOUDWAYS-INFRASTRUCTURE-ACCESS",
+  "product_family": "PRIVATE-INFRASTRUCTURE-ACCESS",
+  "name": "Cloudways Infrastructure Access",
+  "version": "0.1.0",
+  "status": "SOURCE_IMPLEMENTED_NOT_DEPLOYED",
+  "transport": "streamable-http",
+  "path": "/mcp",
+  "authentication": "PRIVATE_OAUTH_2_1_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER",
+  "oauth": {
+    "client_registration": "DYNAMIC_CLIENT_REGISTRATION",
+    "allowed_redirect_domains": [
+      "chatgpt.com",
+      "*.chatgpt.com",
+      "openai.com",
+      "*.openai.com"
+    ],
+    "authorization_code_flow": true,
+    "pkce": "S256",
+    "refresh_tokens": true,
+    "access_token_storage": "SHA256_HASHED_SQLITE_RUNTIME_ONLY",
+    "login": "SINGLE_OPERATOR_PASSWORD_RUNTIME_SECRET",
+    "protected_resource_metadata": "SDK_GENERATED_RFC9728",
+    "scopes": [
+      "infra.read"
+    ],
+    "secrets_in_repository": false
+  },
+  "host_read_contract": "FIXED_HELPER_JSON_STDIN_STDOUT_DIRECT_USER_EXECUTION",
+  "helper_execution": "PYTHON3_DIRECT_NO_SUDO",
+  "read_only": true,
+  "arbitrary_shell": false,
+  "mutation_tools": false,
+  "deploy_tools": false,
+  "target_profiles": [
+    "CLOUDWAYS_MAGENTO_INFRA_READ_V1",
+    "CLOUDWAYS_WORDPRESS_INFRA_READ_V1"
+  ],
+  "tools": [
+    "connector_health",
+    "system_info",
+    "disk_usage",
+    "service_status",
+    "journal_read",
+    "process_list",
+    "socket_list",
+    "file_read",
+    "file_stat",
+    "dir_list",
+    "file_find",
+    "hash_file",
+    "git_read",
+    "sqlite_read_only"
+  ],
+  "runtime_policy_source": "HOST_RUNTIME_ENV_FROM_CANONICAL_TARGET_ADAPTER",
+  "public_ingress": "HTTPS_443_REQUIRED_BEFORE_ACTIVATION",
+  "secrets_in_repository": false
+}

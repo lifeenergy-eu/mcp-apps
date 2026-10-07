@@ -1,24 +1,18 @@
 # Private Infrastructure Access architecture
 
-The application is intentionally split into two layers.
+The product is split into reusable MCP packages plus a host-specific adapter boundary.
 
-1. **Product MCP layer (this repository)** — remote MCP protocol surface, typed read-only tools, authentication boundary and generic helper invocation.
-2. **Host adapter layer** — supplied by the deployment target. On the first P620 deployment this is owned by `lifeenergy-eu/p620-ai-runtime`.
+1. `packages/mcp_auth/` — private OAuth 2.1 authorization/resource server, DCR, PKCE S256, refresh tokens and hashed runtime token storage.
+2. `packages/infrastructure_read_policy/` — fixed-helper client and common 14-tool read-only MCP surface.
+3. `apps/p620-diagnostics/` — P620 compatibility application and host defaults.
+4. `lifeenergy-eu/p620-ai-runtime` — P620-only helper, sudoers, service, Tailscale ingress and runtime secrets.
 
-## Product data path
+P620 product data path remains:
 
-The MCP client communicates directly with the host endpoint:
+`ChatGPT / MCP client -> HTTPS /mcp -> P620 MCP service -> fixed P620 read helper`
 
-`ChatGPT / MCP client -> HTTPS streamable HTTP /mcp -> host MCP service -> fixed host read helper`
+Cloudways is not in the P620 product data path.
 
-For the P620 deployment, Cloudways is not a proxy, queue, gateway or dependency in this product data path.
+The P620 compatibility adapter keeps `sudo -n <fixed-helper>` because that is the existing P620 host boundary. Cloudways uses a different no-sudo adapter and does not weaken or replace this P620 rule.
 
-The existing Project Brain Cloudways-backed AI runtime data plane remains a **separate control/compute channel**. It continues to own governed Project Brain debug/deploy/AI jobs and does not gain authority over the direct MCP product surface.
-
-## Security boundary
-
-The product layer never receives generic shell authority. Every diagnostic operation maps to one named action implemented by the host helper. The P620 helper owns path allowlists, secret-path denial, output redaction, query limits and fixed command construction.
-
-Runtime secrets, concrete hostnames, Funnel/tunnel configuration, sudoers and systemd units remain outside this public repository.
-
-The bootstrap P620 release uses a static bearer token. A reusable ChatGPT/plugin release must move to OAuth-compatible authorization while preserving the same read-only tool boundary.
+No generic shell, mutation or deploy tool is exposed by the MCP application.

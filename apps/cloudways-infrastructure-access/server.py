@@ -13,31 +13,40 @@ for candidate in (HERE.parent.parent / "packages", HERE / "packages"):
         sys.path.insert(0, str(candidate))
         break
 
+os.environ.setdefault("MCP_AUTH_MODE", "oauth_private")
+
 import uvicorn
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 from infrastructure_read_policy import FixedHelperClient, install_read_only_tools
+from mcp_auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 
-VERSION = "0.6.0"
-DEFAULT_HELPER = "/usr/local/libexec/p620-debug-read"
-DEFAULT_TOKEN_FILE = "/srv/project-brain/secrets/p620-mcp.token"
-
-
-def _env(name: str, default: str) -> str:
-    value = os.environ.get(name)
-    return value.strip() if isinstance(value, str) and value.strip() else default
+VERSION = "0.1.0"
 
 
-HOST = _env("MCP_BIND_HOST", "127.0.0.1")
-PORT = int(_env("MCP_BIND_PORT", "8792"))
-PUBLIC_HOST = _env("MCP_PUBLIC_HOST", "localhost")
-TOKEN_FILE = Path(_env("MCP_BEARER_TOKEN_FILE", DEFAULT_TOKEN_FILE))
+def _required(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name}_REQUIRED")
+    return value
+
+
+def _optional(name: str, default: str) -> str:
+    value = os.environ.get(name, "").strip()
+    return value or default
+
+
+HOST = _optional("MCP_BIND_HOST", "127.0.0.1")
+PORT = int(_optional("MCP_BIND_PORT", "8792"))
+PUBLIC_HOST = _required("MCP_PUBLIC_HOST")
+TARGET_ID = _required("MCP_TARGET_ID")
+PROFILE_ID = _required("MCP_PROFILE_ID")
 HELPER = FixedHelperClient.from_environment(
-    default_helper=DEFAULT_HELPER,
-    default_mode="sudo_noninteractive",
+    default_helper=str(HERE / "helper.py"),
+    default_mode="python3_direct",
 )
+TOKEN_FILE = Path(_optional("MCP_BEARER_TOKEN_FILE", str(HERE / ".bootstrap-token")))
 
 
 def load_token() -> str:
@@ -76,9 +85,10 @@ security = TransportSecuritySettings(
 mcp = PluginFastMCP(
     "private-infrastructure-access",
     instructions=(
-        "Private Infrastructure Access: authenticated read-only infrastructure diagnostics. "
-        "Every host read is delegated to the configured fixed helper. "
-        "No arbitrary shell, mutation, secret reads, or generic command execution."
+        "Private Infrastructure Access for one fixed Cloudways target. "
+        "Authenticated read-only diagnostics only. Every host read is delegated to "
+        "the fixed target helper. No arbitrary shell, mutation, deploy, restart, "
+        "secret reads, generic command execution, or caller-selected roots."
     ),
     host=HOST,
     port=PORT,
@@ -102,8 +112,10 @@ def connector_health() -> dict[str, Any]:
         "mcp_path": "/mcp",
         "authentication": "oauth2-private-single-user" if AUTH_MODE == "oauth_private" else "bootstrap-bearer-token-required",
         "oauth_scopes": OAUTH_SCOPES if AUTH_MODE == "oauth_private" else [],
-        "product_data_path": "remote-mcp-client-direct-to-host",
-        "cloudways_in_product_data_path": False,
+        "target_id": TARGET_ID,
+        "profile_id": PROFILE_ID,
+        "product_data_path": "remote-mcp-client-direct-to-cloudways-host",
+        "cloudways_in_product_data_path": True,
         "read_only": True,
         "arbitrary_shell": False,
         "mutation_tools": False,
@@ -113,12 +125,7 @@ def connector_health() -> dict[str, Any]:
     }
 
 
-install_read_only_tools(
-    mcp,
-    HELPER,
-    connector_health,
-    default_git_repo="/srv/project-brain/source/project-brain",
-)
+install_read_only_tools(mcp, HELPER, connector_health)
 
 
 class BootstrapBearerGate:
