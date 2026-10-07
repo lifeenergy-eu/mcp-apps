@@ -1,0 +1,6 @@
+Options -Indexes
+RewriteEngine On
+RewriteRule ^(?:pb-mcp/)?mcp/?$ index.php [L,QSA]
+<FilesMatch "^(?!index\.php$).*">
+    Require all denied
+</FilesMatch>

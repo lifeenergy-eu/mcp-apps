@@ -24,5 +24,14 @@
   "profile_id": "CLOUDWAYS_WORDPRESS_INFRA_READ_V1",
   "target_id": "SERVER-CLOUDWAYS-WORDPRESS",
   "scope": "Canonical registered SYSTEM-WORDPRESS installation roots only.",
-  "runtime_root_rule": "Materialize exact roots from current systems/wordpress.json installations; generic PHP runtimes remain excluded unless explicitly enrolled."
+  "runtime_root_rule": "Materialize exact roots from current systems/wordpress.json installations; generic PHP runtimes remain excluded unless explicitly enrolled.",
+  "public_ingress": {
+    "public_host": "smoothiebarmen.com",
+    "public_prefix": "/pb-mcp",
+    "issuer_url": "https://smoothiebarmen.com/pb-mcp",
+    "resource_url": "https://smoothiebarmen.com/pb-mcp/mcp",
+    "https_port": 443,
+    "backend_bind": "127.0.0.1:8792",
+    "source": "adapters/cloudways-shared/ingress"
+  }
 }

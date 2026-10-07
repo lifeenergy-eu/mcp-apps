@@ -24,5 +24,14 @@
   "profile_id": "CLOUDWAYS_MAGENTO_INFRA_READ_V1",
   "target_id": "SERVER-CLOUDWAYS-MAGENTO",
   "scope": "Canonical registered Cloudways Magento-server application/runtime roots only.",
-  "runtime_root_rule": "Materialize exact allowed roots from current Project Brain server/runtime ownership; never infer additional application roots."
+  "runtime_root_rule": "Materialize exact allowed roots from current Project Brain server/runtime ownership; never infer additional application roots.",
+  "public_ingress": {
+    "public_host": "ai-runtime.larimarcode.com",
+    "public_prefix": "/pb-mcp",
+    "issuer_url": "https://ai-runtime.larimarcode.com/pb-mcp",
+    "resource_url": "https://ai-runtime.larimarcode.com/pb-mcp/mcp",
+    "https_port": 443,
+    "backend_bind": "127.0.0.1:8792",
+    "source": "adapters/cloudways-shared/ingress"
+  }
 }

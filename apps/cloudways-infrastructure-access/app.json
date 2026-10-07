@@ -3,7 +3,7 @@
   "app_id": "CLOUDWAYS-INFRASTRUCTURE-ACCESS",
   "product_family": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "Cloudways Infrastructure Access",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "SOURCE_IMPLEMENTED_NOT_DEPLOYED",
   "transport": "streamable-http",
   "path": "/mcp",
@@ -54,6 +54,13 @@
     "sqlite_read_only"
   ],
   "runtime_policy_source": "HOST_RUNTIME_ENV_FROM_CANONICAL_TARGET_ADAPTER",
-  "public_ingress": "HTTPS_443_REQUIRED_BEFORE_ACTIVATION",
+  "public_ingress": {
+    "mode": "DEDICATED_PATH_PHP_LOOPBACK_BRIDGE",
+    "https_port": 443,
+    "public_prefix": "/pb-mcp",
+    "backend_bind": "127.0.0.1:8792",
+    "source": "adapters/cloudways-shared/ingress",
+    "activation": "PER_TARGET_RUNTIME_ACCEPTANCE_REQUIRED"
+  },
   "secrets_in_repository": false
 }
