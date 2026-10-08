@@ -1,1 +1,3 @@
-# Project Brain Controlled Execution OAuth\n\nRuntime-only private OAuth 2.1. Required scope: `control.execute`. The MCP transport authenticates the caller only; Project Brain Operation Intake and Run Core retain execution authority. Use a separate runtime OAuth database and password secret from read-only infrastructure MCP services.\n
+# Project Brain Controlled Execution OAuth
+
+Runtime-only private OAuth 2.1. Required scope: `control.execute`. The MCP transport authenticates the caller only; Project Brain Operation Intake and Run Core retain execution authority. Use a separate runtime OAuth database and password secret from read-only infrastructure MCP services.
