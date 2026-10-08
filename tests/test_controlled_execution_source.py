@@ -35,6 +35,24 @@ class ControlledExecutionSourceTests(unittest.TestCase):
         self.assertIn("CONTROL_MCP_INGRESS_PATH_DENIED", source)
         self.assertIn("CURLOPT_FOLLOWLOCATION=>false", source)
 
+    def test_controlled_support_files_use_real_line_endings(self) -> None:
+        app_root = ROOT / "apps/project-brain-controlled-execution"
+        requirements = (app_root / "requirements.txt").read_text()
+        oauth = (app_root / "OAUTH.md").read_text()
+        auth_handler = (ROOT / "adapters/cloudways-shared/ingress/.well-known/oauth-authorization-server-control.php").read_text()
+        resource_handler = (ROOT / "adapters/cloudways-shared/ingress/.well-known/oauth-protected-resource-control.php").read_text()
+
+        for content in (requirements, oauth, auth_handler, resource_handler):
+            self.assertNotIn("\\n", content)
+
+        self.assertEqual(requirements.splitlines(), [
+            "mcp==1.26.0",
+            "uvicorn>=0.30,<1",
+            "python-multipart>=0.0.20,<1",
+        ])
+        self.assertTrue(auth_handler.startswith("<?php\ndeclare(strict_types=1);\n"))
+        self.assertTrue(resource_handler.startswith("<?php\ndeclare(strict_types=1);\n"))
+
 
 if __name__ == "__main__":
     unittest.main()
