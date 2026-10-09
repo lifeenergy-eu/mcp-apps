@@ -49,8 +49,10 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
         with patch.dict(os.environ, {"PB_CONTROL_EXACT_SOURCE_SHA": "a" * 40}, clear=True):
             with self.assertRaisesRegex(target.TargetLocalDenied, "CUTOVER_NOT_AUTHORIZED"):
                 target.execute_preauthorized_step(request)
-        with patch.dict(os.environ, {"PB_CONTROL_EXACT_SOURCE_SHA": "a" * 40,
-                                     "PB_WORDPRESS_TARGET_LOCAL_ENABLED": "1"}, clear=True):
+        with (patch.dict(os.environ, {"PB_CONTROL_EXACT_SOURCE_SHA": "a" * 40,
+                                     "PB_WORDPRESS_TARGET_LOCAL_ENABLED": "1"}, clear=True),
+              patch.object(target, "KEY_FILE",
+                           Path("/path/that/does/not/exist/wp-ticket-key"))):
             with self.assertRaisesRegex(target.TargetLocalDenied, "TRUST_FILE_UNAVAILABLE"):
                 target.execute_preauthorized_step(request)
 
