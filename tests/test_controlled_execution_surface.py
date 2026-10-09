@@ -28,6 +28,14 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
         self.assertEqual([arg.arg for arg in fn.args.args], ["task", "wait_seconds"])
         self.assertIn("RUN_REGISTERED_TASK", ast.get_source_segment(self.source, fn))
 
+    def test_default_tool_discovery_is_single_mutation_ingress(self):
+        self.assertIn('PB_EXPOSE_LEGACY_WRITE_TOOLS', self.source)
+        self.assertIn('{"connector_health", "execution_status", "brain_execute"}', self.source)
+        # Existing typed workflow functions remain present for compatibility.
+        names = {node.name for node in self.tree.body if isinstance(node, ast.FunctionDef)}
+        self.assertTrue({"deploy_registered_source", "run_registered_application_workflow",
+                         "run_registered_database_workflow", "run_registered_task"}.issubset(names))
+
     def test_no_shell_execution_or_raw_execution_tool(self):
         self.assertNotIn("shell=True", self.source)
         names = {node.name for node in self.tree.body if isinstance(node, ast.FunctionDef)}
