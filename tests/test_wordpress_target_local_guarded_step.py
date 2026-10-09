@@ -96,7 +96,7 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
 
     def test_runner_called_only_after_verified_ticket(self):
         ticket = {"dependency_receipts": [], "run_id": "RUN-00000001",
-                  "step_id": "STEP-00000001"}
+                  "step_id": "STEP-00000001", "nonce": "nonce_fixture_000001"}
         request = {"ticket_envelope": {"ticket": ticket}, "mutation": self.probe}
         verified = types.SimpleNamespace(verify_ticket=lambda *a, **kw: {"status": "PASS"})
         outcome = {"status": "PASS", "action": "capability_probe", "app_id": "wsbmznzrem",
@@ -110,6 +110,17 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
             self.assertEqual(result["status"], "PASS")
             self.assertTrue(result["write_verified"])
             self.assertTrue(result["cleanup_verified"])
+            self.assertEqual(result["ticket_nonce"], "nonce_fixture_000001")
+            import hashlib, hmac
+            signed = result["attestation"]["signature"]
+            unsigned = dict(result)
+            unsigned.pop("attestation")
+            expected = hmac.new(
+                b"A" * 32, json.dumps(unsigned, sort_keys=True, separators=(",", ":"),
+                                      ensure_ascii=True, allow_nan=False).encode(),
+                hashlib.sha256,
+            ).hexdigest()
+            self.assertTrue(hmac.compare_digest(signed, expected))
             runner.assert_called_once_with(self.probe)
 
     def test_request_cannot_choose_runner_or_ticket_key(self):
