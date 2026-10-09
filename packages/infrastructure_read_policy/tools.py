@@ -28,6 +28,7 @@ def install_read_only_tools(
     helper: FixedHelperClient,
     health_factory: Callable[[], dict[str, Any]],
     default_git_repo: str = "",
+    target_id: str = "",
 ) -> None:
     @mcp.tool(annotations=RO)
     def connector_health() -> dict[str, Any]:
@@ -98,3 +99,9 @@ def install_read_only_tools(
     def sqlite_read_only(path: str, query: str, limit: int = 200) -> dict[str, Any]:
         """Execute one bounded read-only SQLite statement on an allowlisted database."""
         return helper.call("SQLITE_READ_ONLY", path=path, query=query, limit=limit)
+
+    if target_id == "SERVER-CLOUDWAYS-MAGENTO":
+        @mcp.tool(annotations=RO)
+        def project_brain_relay_health(max_events: int = 10) -> dict[str, Any]:
+            """Read fixed redacted dispatcher liveness independently of relay."""
+            return helper.call("PROJECT_BRAIN_RELAY_HEALTH", max_events=max_events)

@@ -62,5 +62,10 @@
     "source": "adapters/cloudways-shared/ingress",
     "activation": "PER_TARGET_RUNTIME_ACCEPTANCE_REQUIRED"
   },
-  "secrets_in_repository": false
+  "secrets_in_repository": false,
+  "target_scoped_optional_tools": {
+    "SERVER-CLOUDWAYS-MAGENTO": [
+      "project_brain_relay_health"
+    ]
+  }
 }

@@ -402,6 +402,84 @@ def _sqlite_read_only(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str
         con.close()
 
 
+
+# Target-local, fixed-file Read MCP observability. Not a relay execution route.
+RELAY_OBSERVABILITY_ROOT = Path("/home/master/.project-brain/control-plane/relay/runtime")
+_RELAY_ID_RE = re.compile(r'(?:operation_id["\x27]?\s*[:=]\s*["\x27]?|operation[ =]+)([A-Z][A-Z0-9_.-]{7,79})')
+_RELAY_ERROR_RE = re.compile(r'\b(?:FAIL_CLOSED|BATCH_[A-Z0-9_]{4,64}|RELAY_[A-Z0-9_]{4,64}|GITHUB_[A-Z0-9_]{4,64}|RUN_CORE_[A-Z0-9_]{4,64}|SOURCE_[A-Z0-9_]{4,64}|INTAKE_[A-Z0-9_]{4,64}|OPERATION_[A-Z0-9_]{4,64})\b')
+_RELAY_SECRET_WORDS = ("TOKEN", "SECRET", "KEY", "PASSWORD", "CREDENTIAL", "AUTH")
+
+
+def _relay_read_fixed(name: str, size: int, tail: bool = False):
+    fixed = RELAY_OBSERVABILITY_ROOT / name
+    if fixed.is_symlink():
+        raise PolicyError("RELAY_DIAG_SYMLINK_DENIED")
+    try:
+        fd = os.open(fixed, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise PolicyError("RELAY_DIAG_FILE_UNAVAILABLE") from exc
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise PolicyError("RELAY_DIAG_NOT_REGULAR_FILE")
+        if st.st_size > size and not tail:
+            raise PolicyError("RELAY_DIAG_FILE_OVERSIZE")
+        if tail:
+            os.lseek(fd, max(0, st.st_size - size), os.SEEK_SET)
+        return (os.read(fd, size), st)
+    except OSError as exc:
+        raise PolicyError("RELAY_DIAG_READ_FAILED") from exc
+    finally:
+        os.close(fd)
+
+
+def _project_brain_relay_health(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
+    if policy.target_id != "SERVER-CLOUDWAYS-MAGENTO":
+        raise PolicyError("RELAY_DIAG_TARGET_DENIED")
+    if set(params) - {"action", "max_events"}:
+        raise PolicyError("RELAY_DIAG_PARAMETERS_DENIED")
+    limit = params.get("max_events", 10)
+    if type(limit) is not int or not 1 <= limit <= 20:
+        raise PolicyError("RELAY_DIAG_LIMIT_DENIED")
+    if RELAY_OBSERVABILITY_ROOT.is_symlink() or not RELAY_OBSERVABILITY_ROOT.is_dir():
+        raise PolicyError("RELAY_DIAG_ROOT_UNAVAILABLE")
+    heartbeat = _relay_read_fixed("dispatcher_heartbeat_epoch", 32)
+    process = _relay_read_fixed("dispatcher_daemon.pid", 32)
+    log = _relay_read_fixed("relay.log", 16384, True)
+    age = None
+    if heartbeat is not None and re.fullmatch(rb"[0-9]{1,15}", heartbeat[0].strip()):
+        age = max(0, int(time.time()) - int(heartbeat[0].strip()))
+    alive = False
+    if process is not None and re.fullmatch(rb"[1-9][0-9]{0,9}", process[0].strip()):
+        try:
+            os.kill(int(process[0].strip()), 0)
+            alive = True
+        except PermissionError:
+            alive = True
+        except (ProcessLookupError, OverflowError, OSError):
+            pass
+    operations = []
+    failures = []
+    if log is not None:
+        sample = log[0].decode("utf-8", "replace")
+        operations = list(dict.fromkeys(_RELAY_ID_RE.findall(sample)))[-limit:]
+        failures = list(dict.fromkeys(
+            code for code in _RELAY_ERROR_RE.findall(sample)
+            if not any(word in code for word in _RELAY_SECRET_WORDS)
+        ))[-limit:]
+    return {
+        "heartbeat_age_seconds": age, "dispatcher_pid_alive": alive,
+        "log_mtime_epoch": int(log[1].st_mtime) if log else None,
+        "log_size_bytes": log[1].st_size if log else None,
+        "recent_operation_ids_matching_uppercase_id_format": operations,
+        "recent_fixed_failure_codes": failures,
+        "raw_log_lines_returned": False,
+        "diagnostic_transport": "DIRECT_READ_MCP_NO_RELAY",
+    }
+
+
 ACTIONS: dict[str, Callable[[RuntimePolicy, dict[str, Any]], dict[str, Any]]] = {
     "SYSTEM_INFO": _system_info,
     "DISK_USAGE": _disk_usage,
@@ -416,6 +494,7 @@ ACTIONS: dict[str, Callable[[RuntimePolicy, dict[str, Any]], dict[str, Any]]] = 
     "HASH_FILE": _hash_file,
     "GIT_READ": _git_read,
     "SQLITE_READ_ONLY": _sqlite_read_only,
+    "PROJECT_BRAIN_RELAY_HEALTH": _project_brain_relay_health,
 }
 
 

@@ -125,7 +125,7 @@ def connector_health() -> dict[str, Any]:
     }
 
 
-install_read_only_tools(mcp, HELPER, connector_health)
+install_read_only_tools(mcp, HELPER, connector_health, target_id=TARGET_ID)
 
 
 class BootstrapBearerGate:

@@ -99,5 +99,48 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "ACTION_DENIED")
 
 
+    def test_relay_health_bounded_no_log_secrets(self):
+        from unittest.mock import patch
+        from infrastructure_read_policy import cloudways_helper as module
+        import time
+        path = Path(self.tmp.name) / "relay"; path.mkdir()
+        (path / "dispatcher_daemon.pid").write_text(str(os.getpid()))
+        (path / "dispatcher_heartbeat_epoch").write_text(str(int(time.time())))
+        (path / "relay.log").write_text('operation_id=PB-TEST-RELAY-RUN-01 FAIL_CLOSED password=DO_NOT_LEAK token=DO_NOT_LEAK')
+        os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
+        with patch.object(module, "RELAY_OBSERVABILITY_ROOT", path):
+            result=execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH","max_events":4})
+        data=result["result"]
+        self.assertTrue(data["dispatcher_pid_alive"])
+        self.assertLess(data["heartbeat_age_seconds"], 30)
+        self.assertEqual(data["recent_operation_ids_matching_uppercase_id_format"],["PB-TEST-RELAY-RUN-01"])
+        self.assertIn("FAIL_CLOSED",data["recent_fixed_failure_codes"])
+        self.assertNotIn("DO_NOT_LEAK",json.dumps(result))
+        self.assertTrue(result["read_only"])
+    def test_relay_health_target_and_path_denials(self):
+        with self.assertRaises(PolicyError):
+            execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH"})
+        os.environ["MCP_TARGET_ID"]="SERVER-CLOUDWAYS-MAGENTO"
+        with self.assertRaises(PolicyError) as ex:
+            execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH","path":"/etc/passwd"})
+        self.assertEqual(ex.exception.code,"RELAY_DIAG_PARAMETERS_DENIED")
+        with self.assertRaises(PolicyError) as ex:
+            execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH","max_events":True})
+        self.assertEqual(ex.exception.code,"RELAY_DIAG_LIMIT_DENIED")
+    def test_relay_health_symlink_and_missing(self):
+        from unittest.mock import patch
+        from infrastructure_read_policy import cloudways_helper as module
+        path=Path(self.tmp.name)/"relay";path.mkdir()
+        os.environ["MCP_TARGET_ID"]="SERVER-CLOUDWAYS-MAGENTO"
+        with patch.object(module,"RELAY_OBSERVABILITY_ROOT",path):
+            status=execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH"})["result"]
+            self.assertIsNone(status["heartbeat_age_seconds"])
+            self.assertFalse(status["dispatcher_pid_alive"])
+            (path/"relay.log").symlink_to(self.root/"hello.txt")
+            with self.assertRaises(PolicyError) as ex:
+                execute_request({"action":"PROJECT_BRAIN_RELAY_HEALTH"})
+            self.assertEqual(ex.exception.code,"RELAY_DIAG_SYMLINK_DENIED")
+
+
 if __name__ == "__main__":
     unittest.main()
