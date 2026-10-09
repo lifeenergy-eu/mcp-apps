@@ -35,10 +35,21 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
             {"action": "filesystem_cleanup", "app_id": "wsbmznzrem",
              "targets": ["../"], "dry_run": True},
             {"action": "capability_probe", "app_id": "wsbmznzrem", "shell": "id"},
-            {"action": "capability_probe", "app_id": "unregistered"},
+            {"action": "capability_probe", "app_id": "invalid-app!"},
         ):
             with self.subTest(bad=bad), self.assertRaises(target.TargetLocalDenied):
                 target.mutation_scope(bad)
+
+    def test_valid_format_is_not_registration_or_execution_authority(self):
+        # Syntax validation alone is not an application registry.
+        # Run Core ticket verification and the guarded PHP root check govern access.
+        syntactically_valid = {"action": "capability_probe", "app_id": "unregistered"}
+        self.assertEqual(target.mutation_scope(syntactically_valid), syntactically_valid)
+        request = {"ticket_envelope": {"ticket": {"dependency_receipts": []}},
+                   "mutation": syntactically_valid}
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(target.TargetLocalDenied, "TRUSTED_SOURCE_IDENTITY"):
+                target.execute_preauthorized_step(request)
 
     def test_trust_and_source_required_before_any_runner(self):
         request = {"ticket_envelope": {"ticket": {"dependency_receipts": []}},

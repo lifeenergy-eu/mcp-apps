@@ -83,6 +83,7 @@ def load_verifier():
 
 
 def mutation_scope(payload: Any) -> dict[str, Any]:
+    """Validate payload shape; signed Run Core and guarded PHP bind app authority."""
     if not isinstance(payload, dict):
         deny("WORDPRESS_LOCAL_PAYLOAD_INVALID")
     action = payload.get("action")
