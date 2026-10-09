@@ -9,6 +9,10 @@ host and never creates an alternate Run Core, SSH/HTTP mutation route or token.
 from __future__ import annotations
 import json
 import re
+import os
+from pathlib import Path
+import stat
+import subprocess
 import sys
 from typing import Any
 
@@ -18,6 +22,7 @@ WORKFLOWS = {
     "WORDPRESS_CACHE_INSPECT_V1": "filesystem_cleanup",
 }
 CACHE_TARGETS = {"cache", "breeze_cache", "debug_log", "upgrade_temp"}
+LOCAL_ADAPTER = Path("/home/master/.project-brain/controlled-execution-mcp-wordpress/adapter/target_local_guarded_step.py")
 APP_RE = re.compile(r"^[a-z0-9]{8,16}$")
 ID_RE = re.compile(r"^WP-MCP-[A-Z0-9_.-]{8,70}$")
 
@@ -43,6 +48,39 @@ def health() -> dict[str, Any]:
         "secrets_emitted": False,
     }
 
+def preauthorized_local_step(signed: dict[str, Any], mutation: dict[str, Any]) -> dict[str, Any]:
+    """Only a Run Core signed step may enter the fixed local guarded adapter.
+
+    This does not issue authorization; absent host attestation is fail-closed.
+    Never fall back to unsigned handoff when a signed execution was requested.
+    """
+    if (LOCAL_ADAPTER.is_symlink() or not LOCAL_ADAPTER.is_file() or
+        LOCAL_ADAPTER.stat().st_mode & 0o022):
+        raise Denied("WORDPRESS_TARGET_LOCAL_ADAPTER_NOT_INSTALLED")
+    request = {"ticket_envelope": signed, "mutation": mutation}
+    try:
+        proc = subprocess.run(
+            ["/usr/bin/python3", str(LOCAL_ADAPTER)],
+            input=json.dumps(request, separators=(",", ":")).encode("utf-8"),
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=145, check=False, shell=False,
+        )
+        receipt = json.loads(proc.stdout.decode("utf-8"))
+    except (subprocess.SubprocessError, OSError, ValueError, UnicodeError):
+        raise Denied("WORDPRESS_TARGET_LOCAL_EXECUTION_FAILED")
+    if not isinstance(receipt, dict):
+        raise Denied("WORDPRESS_TARGET_LOCAL_RECEIPT_INVALID")
+    if proc.returncode != 0:
+        code = receipt.get("code")
+        raise Denied(code if isinstance(code, str) and code.startswith("WORDPRESS_LOCAL_")
+                     else "WORDPRESS_TARGET_LOCAL_EXECUTION_DENIED")
+    if (receipt.get("status") != "PASS" or
+        receipt.get("execution_authority") != "PROJECT-BRAIN-CONTROL-PLANE" or
+        receipt.get("target_id") != TARGET):
+        raise Denied("WORDPRESS_TARGET_LOCAL_RECEIPT_INVALID")
+    return receipt
+
+
 def application(payload: dict[str, Any]) -> dict[str, Any]:
     workflow_id = str(payload.get("workflow_id") or "")
     action = WORKFLOWS.get(workflow_id)
@@ -51,6 +89,11 @@ def application(payload: dict[str, Any]) -> dict[str, Any]:
     operation = payload.get("operation")
     if not isinstance(operation, dict):
         raise Denied("WORDPRESS_WORKFLOW_OPERATION_INVALID")
+    signed = operation.get("_run_core_ticket")
+    if "_run_core_ticket" in operation:
+        if not isinstance(signed, dict) or set(signed) != {"ticket", "signature"}:
+            raise Denied("WORDPRESS_LOCAL_TICKET_ENVELOPE_INVALID")
+        operation = {k: v for k, v in operation.items() if k != "_run_core_ticket"}
     app_id = operation.get("app_id")
     if not isinstance(app_id, str) or not APP_RE.fullmatch(app_id):
         raise Denied("WORDPRESS_APPLICATION_ID_INVALID")
@@ -69,6 +112,8 @@ def application(payload: dict[str, Any]) -> dict[str, Any]:
         if len(set(targets)) != len(targets) or operation.get("dry_run") is not True:
             raise Denied("WORDPRESS_CACHE_INSPECT_MUST_BE_DRY_RUN")
         mutation = {"action": action, "app_id": app_id, "targets": targets, "dry_run": True}
+    if signed is not None:
+        return preauthorized_local_step(signed, mutation)
     return {
         "status": "HANDOFF_REQUIRED",
         "code": "CHATGPT_GITHUB_DIRECT_RELAY_EXECUTION",
