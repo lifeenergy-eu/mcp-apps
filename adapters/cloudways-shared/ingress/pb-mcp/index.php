@@ -6,7 +6,7 @@ const PB_MCP_MAX_REQUEST_BYTES = 2097152;
 
 $targets = [
     'ai-runtime.larimarcode.com' => '/pb-mcp',
-    'smoothiebarmen.com' => '/pb-mcp',
+    'otbplatform.com' => '/pb-mcp',
 ];
 
 function pb_mcp_host(): string {
