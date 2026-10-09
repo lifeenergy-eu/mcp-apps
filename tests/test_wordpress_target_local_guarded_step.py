@@ -116,5 +116,58 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
             target.execute_preauthorized_step(request)
 
 
+class WordPressTransportSignedTicketTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        path = ROOT / "adapters/cloudways-wordpress/controlled-execution-relay-helper.py"
+        spec2 = importlib.util.spec_from_file_location("wordpress_handoff_helper", path)
+        assert spec2 and spec2.loader
+        cls.helper = importlib.util.module_from_spec(spec2)
+        spec2.loader.exec_module(cls.helper)
+
+    def test_legacy_unsigned_path_retained(self):
+        result = self.helper.application({
+            "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
+            "operation": {"app_id": "wsbmznzrem"},
+        })
+        self.assertEqual(result["status"], "HANDOFF_REQUIRED")
+
+    def test_signed_path_fail_closed_absent_adapter(self):
+        with self.assertRaisesRegex(self.helper.Denied, "TARGET_LOCAL_ADAPTER_NOT_INSTALLED"):
+            self.helper.application({
+                "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
+                "operation": {
+                    "app_id": "wsbmznzrem",
+                    "_run_core_ticket": {"ticket": {}, "signature": "a" * 64},
+                }
+            })
+
+    def test_signed_path_no_unsigned_fallback(self):
+        with self.assertRaisesRegex(self.helper.Denied, "LOCAL_TICKET_ENVELOPE_INVALID"):
+            self.helper.application({
+                "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
+                "operation": {"app_id": "wsbmznzrem", "_run_core_ticket": "forged"},
+            })
+        with self.assertRaisesRegex(self.helper.Denied, "CAPABILITY_PROBE_FIELDS_FORBIDDEN"):
+            self.helper.application({
+                "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
+                "operation": {
+                    "app_id": "wsbmznzrem", "shell": "whoami",
+                    "_run_core_ticket": {"ticket": {}, "signature": "a" * 64},
+                }
+            })
+
+    def test_signed_path_delegates_exact_bounded_mutation(self):
+        receipt = {"status": "PASS", "target_id": "SERVER-CLOUDWAYS-WORDPRESS"}
+        signed = {"ticket": {}, "signature": "a" * 64}
+        with patch.object(self.helper, "preauthorized_local_step", return_value=receipt) as call:
+            result = self.helper.application({
+                "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
+                "operation": {"app_id": "wsbmznzrem", "_run_core_ticket": signed},
+            })
+            self.assertIs(result, receipt)
+            call.assert_called_once_with(signed, {"action": "capability_probe", "app_id": "wsbmznzrem"})
+
+
 if __name__ == "__main__":
     unittest.main()
