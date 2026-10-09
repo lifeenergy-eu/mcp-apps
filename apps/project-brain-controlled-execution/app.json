@@ -37,6 +37,7 @@
     "deploy_registered_source",
     "run_registered_application_workflow",
     "run_registered_database_workflow",
+    "run_registered_task",
     "execution_status"
   ],
   "public_ingress": {
@@ -46,5 +47,11 @@
     "backend_bind": "127.0.0.1:8793",
     "source": "adapters/cloudways-shared/ingress/pb-control-mcp",
     "activation": "PROJECT_BRAIN_RUNTIME_ACCEPTANCE_REQUIRED"
+  },
+  "native_named_task": {
+    "status": "SOURCE_REGISTERED_PENDING_EXACT_SHA_RUNTIME_ACCEPTANCE",
+    "data_path": "EXISTING_OAUTH_CONTROLLED_MCP_TO_FIXED_PROJECT_BRAIN_HELPER_TO_RUN_CORE",
+    "no_extra_authority": true,
+    "brain_catalog_ref": "control-plane/EXECUTION_CAPABILITY_CONTRACTS.json#registered_chat_task_intents"
   }
 }

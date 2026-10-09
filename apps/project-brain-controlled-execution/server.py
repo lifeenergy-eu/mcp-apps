@@ -165,6 +165,15 @@ def run_registered_database_workflow(
     })
 
 
+@mcp.tool(annotations=WRITE)
+def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
+    """Send only a registered task intent to Project Brain; no runner, SHA, target or plan."""
+    return helper_call("RUN_REGISTERED_TASK", {
+        "task": task,
+        "wait_seconds": wait_seconds,
+    })
+
+
 @mcp.tool(annotations=RO)
 def execution_status(request_handle: str) -> dict[str, Any]:
     """Read the bounded result status for one Controlled Execution request handle."""
