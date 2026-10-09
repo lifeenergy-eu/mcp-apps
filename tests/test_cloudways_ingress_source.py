@@ -12,7 +12,7 @@ class CloudwaysIngressSourceTests(unittest.TestCase):
         mag = json.loads((ROOT / "adapters/cloudways-magento/profile.json").read_text())
         wp = json.loads((ROOT / "adapters/cloudways-wordpress/profile.json").read_text())
         self.assertEqual(mag["public_ingress"]["resource_url"], "https://ai-runtime.larimarcode.com/pb-mcp/mcp")
-        self.assertEqual(wp["public_ingress"]["resource_url"], "https://smoothiebarmen.com/pb-mcp/mcp")
+        self.assertEqual(wp["public_ingress"]["resource_url"], "https://otbplatform.com/pb-mcp/mcp")
         self.assertEqual(mag["public_ingress"]["backend_bind"], "127.0.0.1:8792")
         self.assertEqual(wp["public_ingress"]["backend_bind"], "127.0.0.1:8792")
 
