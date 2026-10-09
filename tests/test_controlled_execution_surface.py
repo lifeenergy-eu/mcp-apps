@@ -22,6 +22,12 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
         self.assertEqual([arg.arg for arg in fn.args.args], ["task", "wait_seconds"])
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', ast.get_source_segment(self.source, fn))
 
+    def test_brain_execute_is_intent_only(self):
+        fn = next(node for node in self.tree.body
+                  if isinstance(node, ast.FunctionDef) and node.name == "brain_execute")
+        self.assertEqual([arg.arg for arg in fn.args.args], ["task", "wait_seconds"])
+        self.assertIn("RUN_REGISTERED_TASK", ast.get_source_segment(self.source, fn))
+
     def test_no_shell_execution_or_raw_execution_tool(self):
         self.assertNotIn("shell=True", self.source)
         names = {node.name for node in self.tree.body if isinstance(node, ast.FunctionDef)}
@@ -29,7 +35,7 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
 
     def test_read_and_write_annotations_are_separate(self):
         for name, role in (("connector_health", "RO"), ("execution_status", "RO"),
-                           ("run_registered_task", "WRITE"),
+                           ("run_registered_task", "WRITE"), ("brain_execute", "WRITE"),
                            ("deploy_registered_source", "WRITE")):
             fn = next(node for node in self.tree.body
                       if isinstance(node, ast.FunctionDef) and node.name == name)

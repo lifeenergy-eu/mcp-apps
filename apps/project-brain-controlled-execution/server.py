@@ -174,6 +174,15 @@ def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str
     })
 
 
+@mcp.tool(annotations=WRITE)
+def brain_execute(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
+    """Preferred Brain execution entrypoint. Submit a registered intent; Brain owns routing and Run Core execution."""
+    return helper_call("RUN_REGISTERED_TASK", {
+        "task": task,
+        "wait_seconds": wait_seconds,
+    })
+
+
 @mcp.tool(annotations=RO)
 def execution_status(request_handle: str) -> dict[str, Any]:
     """Read the bounded result status for one Controlled Execution request handle."""
