@@ -59,6 +59,19 @@ def load_verifier():
         deny("WORDPRESS_LOCAL_VERIFIER_NOT_INSTALLED")
     if VERIFIER_FILE.stat().st_mode & 0o022:
         deny("WORDPRESS_LOCAL_VERIFIER_WRITABLE_BY_UNTRUSTED_USER")
+    if (VERIFIER_FILE.parent.is_symlink() or
+        VERIFIER_FILE.parent.stat().st_mode & 0o022):
+        deny("WORDPRESS_LOCAL_VERIFIER_DIRECTORY_UNTRUSTED")
+    # Approved runtime verifier digest is set by the canonical trusted deploy,
+    # never supplied by an MCP request. Unsigned or drifted verifier is denied.
+    expected = os.environ.get("PB_TARGET_LOCAL_VERIFIER_SHA256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        deny("WORDPRESS_LOCAL_VERIFIER_SOURCE_NOT_ATTESTED")
+    import hmac
+    if not hmac.compare_digest(
+        hashlib.sha256(VERIFIER_FILE.read_bytes()).hexdigest(), expected
+    ):
+        deny("WORDPRESS_LOCAL_VERIFIER_SOURCE_MISMATCH")
     spec = importlib.util.spec_from_file_location("pb_wordpress_pinned_target_local_ticket", VERIFIER_FILE)
     if not spec or not spec.loader:
         deny("WORDPRESS_LOCAL_VERIFIER_IMPORT_FAILED")
