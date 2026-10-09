@@ -26,12 +26,13 @@
   "scope": "Canonical registered SYSTEM-WORDPRESS installation roots only.",
   "runtime_root_rule": "Materialize exact roots from current systems/wordpress.json installations; generic PHP runtimes remain excluded unless explicitly enrolled.",
   "public_ingress": {
-    "public_host": "smoothiebarmen.com",
+    "public_host": "otbplatform.com",
     "public_prefix": "/pb-mcp",
-    "issuer_url": "https://smoothiebarmen.com/pb-mcp",
-    "resource_url": "https://smoothiebarmen.com/pb-mcp/mcp",
+    "issuer_url": "https://otbplatform.com/pb-mcp",
+    "resource_url": "https://otbplatform.com/pb-mcp/mcp",
     "https_port": 443,
     "backend_bind": "127.0.0.1:8792",
-    "source": "adapters/cloudways-shared/ingress"
+    "source": "adapters/cloudways-shared/ingress",
+    "verified_alternate_source": "evidence/reconciliation/infrastructure-debug-read-direct-mcp-and-otb-ingress-20261007.json"
   }
 }
