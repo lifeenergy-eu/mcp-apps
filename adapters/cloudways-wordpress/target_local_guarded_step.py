@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import importlib.util
 import json
 import os
@@ -67,7 +68,6 @@ def load_verifier():
     expected = os.environ.get("PB_TARGET_LOCAL_VERIFIER_SHA256", "")
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         deny("WORDPRESS_LOCAL_VERIFIER_SOURCE_NOT_ATTESTED")
-    import hmac
     if not hmac.compare_digest(
         hashlib.sha256(VERIFIER_FILE.read_bytes()).hexdigest(), expected
     ):
@@ -213,6 +213,7 @@ def execute_preauthorized_step(request: Any) -> dict[str, Any]:
         "status": "PASS", "execution_authority": "PROJECT-BRAIN-CONTROL-PLANE",
         "target_id": "SERVER-CLOUDWAYS-WORDPRESS",
         "run_id": ticket["run_id"], "step_id": ticket["step_id"],
+        "ticket_nonce": ticket["nonce"],
         "source_sha": sha, "action": payload["action"],
         "app_id": payload["app_id"],
         "receipt_sha256": hashlib.sha256(
@@ -222,6 +223,16 @@ def execute_preauthorized_step(request: Any) -> dict[str, Any]:
     if payload["action"] == "capability_probe":
         receipt["write_verified"] = result.get("write_verified") is True
         receipt["cleanup_verified"] = result.get("cleanup_verified") is True
+    # Run Core must verify this response, rather than trusting caller-submitted
+    # JSON as a completion receipt. Never emit the runtime-only key.
+    receipt["attestation"] = {
+        "algorithm": "hmac-sha256",
+        "signature": hmac.new(
+            key, json.dumps(receipt, sort_keys=True, separators=(",", ":"),
+                            ensure_ascii=True, allow_nan=False).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest(),
+    }
     return receipt
 
 
