@@ -133,7 +133,9 @@ class WordPressTransportSignedTicketTests(unittest.TestCase):
         self.assertEqual(result["status"], "HANDOFF_REQUIRED")
 
     def test_signed_path_fail_closed_absent_adapter(self):
-        with self.assertRaisesRegex(self.helper.Denied, "TARGET_LOCAL_ADAPTER_NOT_INSTALLED"):
+        with (patch.object(self.helper, "LOCAL_ADAPTER",
+                           Path("/path/that/does/not/exist/wp-guarded.py")),
+              self.assertRaisesRegex(self.helper.Denied, "TARGET_LOCAL_ADAPTER_NOT_INSTALLED")):
             self.helper.application({
                 "workflow_id": "WORDPRESS_CAPABILITY_PROBE_V1",
                 "operation": {
