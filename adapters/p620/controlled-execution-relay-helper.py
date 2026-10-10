@@ -26,7 +26,7 @@ def dispatch(req):
             return fail("P620_DEPLOY_TARGET_OR_SHA_INVALID")
         if payload.get("repository") not in ("","lifeenergy-eu/p620-ai-runtime",None) or payload.get("paths") not in ([],None):
             return fail("P620_DEPLOY_SOURCE_OR_PATHS_NOT_ALLOWED")
-        return {"status":"HANDOFF_REQUIRED","code":"CHATGPT_GITHUB_DIRECT_RELAY_EXECUTION","target_id":TARGET,"system_id":"SYSTEM-LOCAL-AI","capability":"DEPLOY_P620_RUNTIME_FROM_GITHUB","source_sha":sha,"source_repository":"lifeenergy-eu/p620-ai-runtime","canonical_execution":"PB_RELAY_BATCH_V1","execution_authority":"PROJECT-BRAIN-CONTROL-PLANE","instructions":"Submit registered P620 outbound deployment through Project Brain GitHub Direct and Run Core; read canonical relay result. Do not execute inbound on P620.","secrets_emitted":False}
+        return {"status":"HANDOFF_REQUIRED","code":"BRAIN_MCP_EXECUTION_REQUIRED","next_plugin":"Project Brain MCP","next_tool":"brain_execute","next_intent_key":"P620_RUNTIME_DEPLOY","next_intent_inputs":{"p620_runtime_sha":sha},"execution_performed":False,"target_id":TARGET,"system_id":"SYSTEM-LOCAL-AI","capability":"DEPLOY_P620_RUNTIME_FROM_GITHUB","source_sha":sha,"source_repository":"lifeenergy-eu/p620-ai-runtime","canonical_execution":"PB_RELAY_BATCH_V1","execution_authority":"PROJECT-BRAIN-CONTROL-PLANE","instructions":"Use Project Brain MCP brain_execute with P620_RUNTIME_DEPLOY intent. Brain resolves Run Core and the registered execution route; no inbound P620 execution.","secrets_emitted":False}
     if action=="EXECUTION_STATUS":
         handle=payload.get("request_handle")
         if not isinstance(handle,str) or not HANDLE.fullmatch(handle):

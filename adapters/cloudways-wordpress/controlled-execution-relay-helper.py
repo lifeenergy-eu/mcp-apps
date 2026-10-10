@@ -116,7 +116,10 @@ def application(payload: dict[str, Any]) -> dict[str, Any]:
         return preauthorized_local_step(signed, mutation)
     return {
         "status": "HANDOFF_REQUIRED",
-        "code": "CHATGPT_GITHUB_DIRECT_RELAY_EXECUTION",
+        "code": "BRAIN_MCP_EXECUTION_REQUIRED",
+        "next_plugin": "Project Brain MCP",
+        "next_tool": "brain_execute",
+        "next_intent_key": "WORDPRESS_GUARDED_PROBE" if workflow_id == "WORDPRESS_CAPABILITY_PROBE_V1" else None,
         "system_id": "SYSTEM-WORDPRESS",
         "target_id": TARGET,
         "workflow_id": workflow_id,
@@ -126,10 +129,9 @@ def application(payload: dict[str, Any]) -> dict[str, Any]:
         "canonical_orchestration": "PB_RELAY_BATCH_V1",
         "mutation": mutation,
         "handoff_instructions": (
-            "ChatGPT: resolve app_id against current Project Brain systems/wordpress.json "
-            "and capability against canonical owners; submit a relay_batch plan and inbox "
-            "through connected GitHub Direct using exact canonical SHA; read the "
-            "result from control-plane/operations/results; never execute locally."
+            "Use Project Brain MCP brain_execute with registered named intent and "
+            "business inputs, never caller-composed relay plan. If this workflow "
+            "has no named intent, resolve the existing canonical Run Core capability."
         ),
         "secrets_emitted": False,
     }
@@ -158,7 +160,9 @@ def dispatch(req: dict[str, Any]) -> dict[str, Any]:
     if action == "EXECUTION_STATUS":
         return status(payload)
     if action == "DEPLOY_REGISTERED_SOURCE":
-        raise Denied("WORDPRESS_SOURCE_DEPLOY_NOT_REGISTERED")
+        return {"status": "HANDOFF_REQUIRED", "code": "BRAIN_MCP_EXECUTION_REQUIRED",
+                "next_plugin": "Project Brain MCP", "next_tool": "brain_execute",
+                "execution_performed": False, "secrets_emitted": False}
     if action == "RUN_DATABASE_WORKFLOW":
         raise Denied("WORDPRESS_DATABASE_WRITE_NOT_REGISTERED")
     raise Denied("WORDPRESS_ACTION_NOT_REGISTERED")
