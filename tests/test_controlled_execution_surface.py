@@ -36,6 +36,21 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
         self.assertTrue({"deploy_registered_source", "run_registered_application_workflow",
                          "run_registered_database_workflow", "run_registered_task"}.issubset(names))
 
+    def test_tool_discovery_filter_precedes_auth_enrichment(self):
+        cls = next(node for node in self.tree.body
+                   if isinstance(node, ast.ClassDef) and node.name == "PluginFastMCP")
+        fn = next(node for node in cls.body
+                  if isinstance(node, ast.AsyncFunctionDef) and node.name == "list_tools")
+        names = {node.id for node in ast.walk(fn) if isinstance(node, ast.Name)}
+        self.assertIn("tools", names)
+        filtered = [node for node in ast.walk(fn)
+                    if isinstance(node, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "tools" for t in node.targets)
+                    and isinstance(node.value, ast.ListComp)]
+        self.assertTrue(filtered, "Public discovery must restrict legacy write tools")
+        allowed = {"connector_health", "execution_status", "brain_execute"}
+        self.assertTrue(all(value in self.source for value in allowed))
+
     def test_no_shell_execution_or_raw_execution_tool(self):
         self.assertNotIn("shell=True", self.source)
         names = {node.name for node in self.tree.body if isinstance(node, ast.FunctionDef)}
