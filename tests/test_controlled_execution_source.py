@@ -15,18 +15,24 @@ class ControlledExecutionSourceTests(unittest.TestCase):
         self.assertFalse(app["raw_sql"])
         self.assertFalse(app["caller_selected_runner"])
         self.assertEqual(app["oauth"]["scopes"], ["control.execute"])
-        self.assertEqual(set(app["tools"]), {
+        self.assertEqual(app["tools"], ["brain_execute"])
+        self.assertEqual(set(app["compatibility_tools"]), {
             "connector_health","deploy_registered_source","run_registered_application_workflow",
             "run_registered_database_workflow","run_registered_task","execution_status"
         })
+        self.assertFalse(app["public_surface"]["legacy_tools_discoverable"])
+        self.assertEqual(app["public_surface"]["single_execution_tool"], "brain_execute")
 
     def test_named_task_uses_fixed_brain_helper_not_local_authority(self) -> None:
         app = json.loads((ROOT / "apps/project-brain-controlled-execution/app.json").read_text())
-        self.assertIn("run_registered_task", app["tools"])
+        self.assertIn("run_registered_task", app["compatibility_tools"])
+        self.assertEqual(app["tools"], ["brain_execute"])
         self.assertFalse(app["native_named_task"]["no_extra_authority"] is False)
         source = (ROOT / "apps/project-brain-controlled-execution/server.py").read_text()
         self.assertIn('def run_registered_task(task: dict[str, Any], wait_seconds: int = 8)', source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', source)
+        self.assertIn('return _legacy_handoff("RUN_REGISTERED_TASK")', source)
+        self.assertIn('tool.name == "brain_execute"', source)
         self.assertNotIn("shell=True", source)
 
     def test_server_uses_one_fixed_helper_without_shell(self) -> None:

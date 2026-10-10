@@ -33,12 +33,7 @@
   "raw_sql": false,
   "raw_http": false,
   "tools": [
-    "connector_health",
-    "deploy_registered_source",
-    "run_registered_application_workflow",
-    "run_registered_database_workflow",
-    "run_registered_task",
-    "execution_status"
+    "brain_execute"
   ],
   "public_ingress": {
     "mode": "DEDICATED_PATH_PHP_LOOPBACK_BRIDGE",
@@ -53,5 +48,21 @@
     "data_path": "EXISTING_OAUTH_CONTROLLED_MCP_TO_FIXED_PROJECT_BRAIN_HELPER_TO_RUN_CORE",
     "no_extra_authority": true,
     "brain_catalog_ref": "control-plane/EXECUTION_CAPABILITY_CONTRACTS.json#registered_chat_task_intents"
+  },
+  "compatibility_tools": [
+    "connector_health",
+    "deploy_registered_source",
+    "run_registered_application_workflow",
+    "run_registered_database_workflow",
+    "run_registered_task",
+    "execution_status"
+  ],
+  "public_surface": {
+    "single_execution_tool": "brain_execute",
+    "legacy_tools_discoverable": false,
+    "legacy_actions": "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE_NO_EXECUTION",
+    "run_core_authority": "PROJECT-BRAIN-CONTROL-PLANE",
+    "policy_ref": "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1",
+    "runtime_acceptance": "PENDING_EXACT_SOURCE_RELEASE_AND_LIVE_TOOL_DISCOVERY"
   }
 }
