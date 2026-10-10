@@ -71,7 +71,7 @@ security = TransportSecuritySettings(
 mcp = PluginFastMCP(
     "project-brain-controlled-execution",
     instructions=(
-        "Project Brain Controlled Execution. Typed operations only. Execution authority remains in "
+        "Project Brain Controlled Execution. Public deploy input: repository and commit_sha only. Execution authority remains in "
         "Project Brain capability contracts, Run Core and existing deterministic executors. "
         "No arbitrary shell, caller-selected runner, target, filesystem root, raw SQL or raw HTTP."
     ),
@@ -135,8 +135,8 @@ def _legacy_handoff(action: str) -> dict[str, Any]:
         "blocked_action": action,
         "next_surface": "PROJECT_BRAIN_MCP",
         "next_tool": "brain_execute",
-        "required_next_action": "RESUBMIT_REGISTERED_TASK_INTENT",
-        "message": "This compatibility tool no longer executes. Use brain_execute with a registered task intent and business inputs.",
+        "required_next_action": "RESUBMIT_REPOSITORY_AND_COMMIT_SHA",
+        "message": "This compatibility tool no longer executes. Use brain_execute with repository and commit_sha.",
         "retry_same_tool": False,
         "execution_performed": False,
         "secrets_emitted": False,
@@ -179,7 +179,7 @@ def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str
 
 @mcp.tool(annotations=WRITE)
 def brain_execute(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
-    """Preferred Brain execution entrypoint. Submit a registered intent; Brain owns routing and Run Core execution."""
+    """Deploy an exact GitHub commit. Set task to {repository, commit_sha}; Brain owns all Run Core planning and verification."""
     return helper_call("RUN_REGISTERED_TASK", {
         "task": task,
         "wait_seconds": wait_seconds,
