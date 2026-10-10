@@ -48,11 +48,8 @@ HELPER = _required("PB_CONTROLLED_EXECUTION_HELPER")
 class PluginFastMCP(FastMCP):
     async def list_tools(self):
         tools = await super().list_tools()
-        # Single public mutation ingress. Legacy typed handlers remain callable
-        # for compatibility, but are not offered as competing choices by default.
-        if os.environ.get("PB_EXPOSE_LEGACY_WRITE_TOOLS") != "1":
-            visible = {"connector_health", "execution_status", "brain_execute"}
-            tools = [tool for tool in tools if tool.name in visible]
+        # Keep all registered typed operations discoverable alongside brain_execute.
+        # The fixed Project Brain helper enforces each operation's allowlist.
         if AUTH_MODE != "oauth_private":
             return tools
         schemes = [{"type": "oauth2", "scopes": OAUTH_SCOPES}]
