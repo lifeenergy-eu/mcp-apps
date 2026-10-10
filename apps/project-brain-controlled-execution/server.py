@@ -48,8 +48,9 @@ HELPER = _required("PB_CONTROLLED_EXECUTION_HELPER")
 class PluginFastMCP(FastMCP):
     async def list_tools(self):
         tools = await super().list_tools()
-        # Keep all registered typed operations discoverable alongside brain_execute.
-        # The fixed Project Brain helper enforces each operation's allowlist.
+        # The Brain MCP exposes exactly one ChatGPT-facing execution tool.
+        # Legacy handlers remain defined only to respond to stale tool callers.
+        tools = [tool for tool in tools if tool.name == "brain_execute"]
         if AUTH_MODE != "oauth_private":
             return tools
         schemes = [{"type": "oauth2", "scopes": OAUTH_SCOPES}]
@@ -121,6 +122,23 @@ def connector_health() -> dict[str, Any]:
     return body
 
 
+def _legacy_handoff(action: str) -> dict[str, Any]:
+    """A stale legacy tool call never executes; tell ChatGPT its next action."""
+    return {
+        "status": "HANDOFF_REQUIRED",
+        "code": "USE_BRAIN_EXECUTE",
+        "origin_surface": "PROJECT_BRAIN_MCP",
+        "blocked_action": action,
+        "next_surface": "PROJECT_BRAIN_MCP",
+        "next_tool": "brain_execute",
+        "required_next_action": "RESUBMIT_REGISTERED_TASK_INTENT",
+        "message": "This compatibility tool no longer executes. Use brain_execute with a registered task intent and business inputs.",
+        "retry_same_tool": False,
+        "execution_performed": False,
+        "secrets_emitted": False,
+    }
+
+
 @mcp.tool(annotations=WRITE)
 def deploy_registered_source(
     system_id: str,
@@ -130,14 +148,7 @@ def deploy_registered_source(
     wait_seconds: int = 8,
 ) -> dict[str, Any]:
     """Deploy one exact SHA through a registered system deployment contract."""
-    return helper_call("DEPLOY_REGISTERED_SOURCE", {
-        "system_id": system_id,
-        "source_sha": source_sha,
-        "repository": repository,
-        "paths": paths or [],
-        "wait_seconds": wait_seconds,
-    })
-
+    return _legacy_handoff("DEPLOY_REGISTERED_SOURCE")
 
 @mcp.tool(annotations=WRITE)
 def run_registered_application_workflow(
@@ -146,12 +157,7 @@ def run_registered_application_workflow(
     wait_seconds: int = 8,
 ) -> dict[str, Any]:
     """Run one named registered application workflow through Project Brain."""
-    return helper_call("RUN_APPLICATION_WORKFLOW", {
-        "workflow_id": workflow_id,
-        "operation": operation,
-        "wait_seconds": wait_seconds,
-    })
-
+    return _legacy_handoff("RUN_APPLICATION_WORKFLOW")
 
 @mcp.tool(annotations=WRITE)
 def run_registered_database_workflow(
@@ -160,21 +166,12 @@ def run_registered_database_workflow(
     wait_seconds: int = 8,
 ) -> dict[str, Any]:
     """Run one named database contract. Unknown contracts and raw SQL/table selection fail closed."""
-    return helper_call("RUN_DATABASE_WORKFLOW", {
-        "database_contract_id": database_contract_id,
-        "payload": payload or {},
-        "wait_seconds": wait_seconds,
-    })
-
+    return _legacy_handoff("RUN_DATABASE_WORKFLOW")
 
 @mcp.tool(annotations=WRITE)
 def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
     """Send only a registered task intent to Project Brain; no runner, SHA, target or plan."""
-    return helper_call("RUN_REGISTERED_TASK", {
-        "task": task,
-        "wait_seconds": wait_seconds,
-    })
-
+    return _legacy_handoff("RUN_REGISTERED_TASK")
 
 @mcp.tool(annotations=WRITE)
 def brain_execute(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
