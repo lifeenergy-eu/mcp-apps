@@ -22,7 +22,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from mcp_auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 RO = {"readOnlyHint": True, "openWorldHint": False}
 WRITE = {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False}
 
@@ -119,6 +119,10 @@ def connector_health() -> dict[str, Any]:
     body["authentication"] = "oauth2-private-single-user"
     body["oauth_scopes"] = OAUTH_SCOPES
     body["mcp_path"] = "/mcp"
+    body["primary_execution_tool"] = "brain_execute"
+    body["public_execution_tool_count"] = 1
+    body["legacy_write_tools"] = "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE"
+    body["canonical_deploy_policy_ref"] = "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1.canonical_delivery_pipeline_v1"
     return body
 
 

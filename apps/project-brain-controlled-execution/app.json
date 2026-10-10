@@ -2,8 +2,8 @@
   "schema_version": "1.0",
   "app_id": "PROJECT-BRAIN-CONTROLLED-EXECUTION",
   "name": "Project Brain Controlled Execution",
-  "version": "0.1.0",
-  "status": "SOURCE_IMPLEMENTED_PENDING_RUNTIME_ACCEPTANCE",
+  "version": "0.1.1",
+  "status": "SOURCE_CANDIDATE_PENDING_EXACT_SHA_RUNTIME_ROLLOUT",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication": "PRIVATE_OAUTH_2_1_AUTHORIZATION_SERVER_AND_RESOURCE_SERVER",
@@ -44,7 +44,7 @@
     "activation": "PROJECT_BRAIN_RUNTIME_ACCEPTANCE_REQUIRED"
   },
   "native_named_task": {
-    "status": "SOURCE_REGISTERED_PENDING_EXACT_SHA_RUNTIME_ACCEPTANCE",
+    "status": "SOURCE_REGISTERED_PENDING_NEW_RELEASE_ACCEPTANCE",
     "data_path": "EXISTING_OAUTH_CONTROLLED_MCP_TO_FIXED_PROJECT_BRAIN_HELPER_TO_RUN_CORE",
     "no_extra_authority": true,
     "brain_catalog_ref": "control-plane/EXECUTION_CAPABILITY_CONTRACTS.json#registered_chat_task_intents"
@@ -63,6 +63,6 @@
     "legacy_actions": "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE_NO_EXECUTION",
     "run_core_authority": "PROJECT-BRAIN-CONTROL-PLANE",
     "policy_ref": "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1",
-    "runtime_acceptance": "PENDING_EXACT_SOURCE_RELEASE_AND_LIVE_TOOL_DISCOVERY"
+    "runtime_acceptance": "REQUIRES_NEW_EXACT_SHA_RELEASE_AND_LIVE_AUTHENTICATED_TOOLS_LIST_AND_RUN_CORE_E2E"
   }
 }
