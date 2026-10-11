@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "app_id": "NETCUP-TARGET-CONTROLLED-EXECUTION",
+  "name": "Project Brain Netcup Target Controlled Execution",
+  "version": "0.1.0",
+  "status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "source_repository": "lifeenergy-eu/mcp-apps",
+  "target_id": "SERVER-NETCUP-WORDPRESS",
+  "profile_id": "NETCUP_WORDPRESS_ROOT_WRITE_V1",
+  "transport": "streamable-http",
+  "path": "/mcp",
+  "bind": "127.0.0.1:8793",
+  "oauth": {
+    "mode": "private",
+    "scope": "control.execute",
+    "separate_read_credentials": true,
+    "public_unauthenticated": false
+  },
+  "public_chatgpt_execution": false,
+  "central_authority": "PROJECT_BRAIN_RUN_CORE",
+  "run_core_ticket": "EXACT_TARGET_SIGNED_SINGLE_USE",
+  "privilege_boundary": "ROOT_OWNED_PINNED_SIGNED_AGENT_SUDO_NO_ARGS",
+  "source_activation_required": true,
+  "systemd": "project-brain-netcup-controlled-execution-mcp.service",
+  "environment_file": "/etc/project-brain/mcp/netcup-write.env",
+  "access": {
+    "arbitrary_shell": false,
+    "raw_sql": false,
+    "caller_selected_command": false,
+    "caller_selected_runner": false,
+    "caller_selected_target": false,
+    "standalone_deploy": false
+  },
+  "tools": [
+    "connector_health",
+    "submit_signed_run_core_ticket"
+  ]
+}
