@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "target_id": "SERVER-NETCUP-WORDPRESS",
+  "profile_id": "NETCUP_WORDPRESS_ROOT_SERVER_V1",
+  "target_class": "NETCUP_SELF_MANAGED_ROOT_SERVER",
+  "status": "SOURCE_ONLY_NOT_DEPLOYED",
+  "source_repository": "lifeenergy-eu/mcp-apps",
+  "host_runtime_owner": "SERVER-NETCUP-WORDPRESS",
+  "read": {
+    "application": "apps/cloudways-infrastructure-access",
+    "helper": "apps/cloudways-infrastructure-access/helper.py",
+    "unit": "project-brain-netcup-read-mcp.service",
+    "user": "projectbrain-mcp-read",
+    "bind": "127.0.0.1:8792",
+    "oauth_scope": "infra.read",
+    "env_file": "/etc/project-brain/mcp/netcup-read.env",
+    "secrets_dir": "/etc/project-brain/secrets/netcup-read",
+    "release_root": "/opt/project-brain/mcp/read/releases",
+    "allowed_roots": [
+      "/var/log/nginx",
+      "/var/log/mysql",
+      "/var/lib/project-brain/control"
+    ],
+    "allowed_services": [
+      "ssh.service",
+      "nginx.service",
+      "php8.3-fpm.service",
+      "redis-server.service",
+      "mariadb.service",
+      "fail2ban.service",
+      "auditd.service",
+      "ufw.service"
+    ]
+  },
+  "write": {
+    "unit": "project-brain-netcup-controlled-execution-mcp.service",
+    "user": "projectbrain-mcp-write",
+    "bind": "127.0.0.1:8793",
+    "oauth_scope": "control.execute",
+    "status": "NOT_DEPLOYED",
+    "authority": "PROJECT_BRAIN_RUN_CORE_ONLY",
+    "cli_mode": "TYPED_SIGNED_PRIVILEGED_EXECUTOR_ONLY",
+    "arbitrary_shell": false
+  },
+  "transport": {
+    "tunnel": "netcup-wordpress-brain-mcp",
+    "route_activation": "AFTER_PRIVATE_OAUTH_POSITIVE_AND_NEGATIVE_E2E",
+    "public_unauthenticated": false
+  },
+  "activation_gates": [
+    "HMAC_V2_SOURCE_ATTESTATION",
+    "PINNED_SYSTEMD_UNIT_AND_PROCESS_SHA",
+    "INDEPENDENT_OAUTH_AND_SCOPE_TEST",
+    "WRONG_TARGET_NEGATIVE_TEST",
+    "NO_PUBLIC_DB_OR_REDIS_LISTENER",
+    "SIGNED_RUN_CORE_WRITE_AND_REPLAY_PROTECTION",
+    "NO_CLOUDWAYS_OR_WORDPRESS_PRODUCTION_MUTATION"
+  ]
+}
