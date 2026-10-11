@@ -6,7 +6,14 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 from typing import Any
+
+HERE = Path(__file__).resolve().parent
+for candidate in (HERE.parent.parent / "packages", HERE / "packages"):
+    if candidate.is_dir():
+        sys.path.insert(0, str(candidate))
+        break
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
@@ -39,7 +46,7 @@ def validate_helper(value: str) -> Path:
         raise RuntimeError("NETCUP_SIGNED_HELPER_PATH_DENIED") from exc
     if len(relative.parts) != 3 or not SOURCE_PATTERN.fullmatch(relative.parts[0]) or relative.parts[1:] != ("netcup_agent", "write_entry.py"):
         raise RuntimeError("NETCUP_SIGNED_HELPER_PATH_DENIED")
-    if path.is_symlink() or not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
+    if path.is_symlink() or not path.is_file() or path.resolve(strict=True) != path or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
         raise RuntimeError("NETCUP_SIGNED_HELPER_INTEGRITY_DENIED")
     return path
 

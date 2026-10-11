@@ -18,6 +18,8 @@ class NetcupSignedWriteMcpTests(unittest.TestCase):
         self.assertFalse(app["access"]["arbitrary_shell"])
         self.assertFalse(app["access"]["standalone_deploy"])
         self.assertIn("TICKET_KEYS", source)
+        self.assertIn("sys.path.insert(0, str(candidate))", source)
+        self.assertIn("path.resolve(strict=True) != path", source)
         self.assertIn("NETCUP_WRITE_OAUTH_SCOPE_MISMATCH", source)
         self.assertIn("NETCUP_SIGNED_HELPER_PATH_DENIED", source)
         self.assertIn('"/usr/bin/sudo", "-n", str(HELPER)', source)
