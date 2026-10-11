@@ -35,7 +35,8 @@
   "deploy_tools": false,
   "target_profiles": [
     "CLOUDWAYS_MAGENTO_INFRA_READ_V1",
-    "CLOUDWAYS_WORDPRESS_INFRA_READ_V1"
+    "CLOUDWAYS_WORDPRESS_INFRA_READ_V1",
+    "NETCUP_WORDPRESS_ROOT_SERVER_V1"
   ],
   "tools": [
     "connector_health",
@@ -60,12 +61,32 @@
     "public_prefix": "/pb-mcp",
     "backend_bind": "127.0.0.1:8792",
     "source": "adapters/cloudways-shared/ingress",
-    "activation": "PER_TARGET_RUNTIME_ACCEPTANCE_REQUIRED"
+    "activation": "CLOUDWAYS_PATH_UNCHANGED_NETCUP_TUNNEL_ROUTE_INACTIVE"
   },
   "secrets_in_repository": false,
   "target_scoped_optional_tools": {
     "SERVER-CLOUDWAYS-MAGENTO": [
       "project_brain_relay_health"
+    ]
+  },
+  "target_class_selection": {
+    "default": "CLOUDWAYS_MANAGED_APPLICATION_SERVER",
+    "new_supported_class": "NETCUP_SELF_MANAGED_ROOT_SERVER",
+    "activation_status": "SOURCE_CANDIDATE_NO_NETCUP_DEPLOY",
+    "netcup_required_environment": [
+      "MCP_TARGET_CLASS=NETCUP_SELF_MANAGED_ROOT_SERVER",
+      "MCP_TARGET_ID=SERVER-NETCUP-WORDPRESS",
+      "MCP_PROFILE_ID=NETCUP_WORDPRESS_ROOT_SERVER_V1",
+      "MCP_AUTH_MODE=oauth_private",
+      "MCP_BIND_HOST=127.0.0.1",
+      "MCP_OAUTH_SCOPES=infra.read"
+    ],
+    "requirements": [
+      "Per-host systemd unit with root-managed env and dedicated UID",
+      "No Cloudways-specific environment reuse",
+      "Attested signed HMAC V2 source SHA before activation",
+      "Cloudflare Tunnel HTTPS route only after OAuth and connected E2E",
+      "Negative tests must reject wrong target, scope, bind or class"
     ]
   }
 }

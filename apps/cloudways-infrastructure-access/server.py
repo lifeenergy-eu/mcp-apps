@@ -42,6 +42,18 @@ PORT = int(_optional("MCP_BIND_PORT", "8792"))
 PUBLIC_HOST = _required("MCP_PUBLIC_HOST")
 TARGET_ID = _required("MCP_TARGET_ID")
 PROFILE_ID = _required("MCP_PROFILE_ID")
+TARGET_CLASS = _optional("MCP_TARGET_CLASS", "CLOUDWAYS_MANAGED_APPLICATION_SERVER")
+if TARGET_CLASS not in {"CLOUDWAYS_MANAGED_APPLICATION_SERVER", "NETCUP_SELF_MANAGED_ROOT_SERVER"}:
+    raise RuntimeError("MCP_TARGET_CLASS_INVALID")
+if TARGET_CLASS == "NETCUP_SELF_MANAGED_ROOT_SERVER":
+    if TARGET_ID != "SERVER-NETCUP-WORDPRESS" or PROFILE_ID != "NETCUP_WORDPRESS_ROOT_SERVER_V1":
+        raise RuntimeError("NETCUP_TARGET_PROFILE_MISMATCH")
+    if HOST not in {"127.0.0.1", "::1"}:
+        raise RuntimeError("NETCUP_MCP_LOOPBACK_REQUIRED")
+    if AUTH_MODE != "oauth_private" or "infra.read" not in OAUTH_SCOPES:
+        raise RuntimeError("NETCUP_READ_OAUTH_REQUIRED")
+elif TARGET_ID.startswith("SERVER-NETCUP-"):
+    raise RuntimeError("NETCUP_TARGET_CLASS_REQUIRED")
 HELPER = FixedHelperClient.from_environment(
     default_helper=str(HERE / "helper.py"),
     default_mode="python3_direct",
@@ -85,7 +97,7 @@ security = TransportSecuritySettings(
 mcp = PluginFastMCP(
     "private-infrastructure-access",
     instructions=(
-        "Private Infrastructure Access for one fixed Cloudways target. "
+        f"Private Infrastructure Access for one fixed {TARGET_CLASS} target. "
         "Authenticated read-only diagnostics only. Every host read is delegated to "
         "the fixed target helper. No arbitrary shell, mutation, deploy, restart, "
         "secret reads, generic command execution, or caller-selected roots."
@@ -114,8 +126,9 @@ def connector_health() -> dict[str, Any]:
         "oauth_scopes": OAUTH_SCOPES if AUTH_MODE == "oauth_private" else [],
         "target_id": TARGET_ID,
         "profile_id": PROFILE_ID,
-        "product_data_path": "remote-mcp-client-direct-to-cloudways-host",
-        "cloudways_in_product_data_path": True,
+        "product_data_path": ("remote-mcp-client-direct-to-netcup-host" if TARGET_CLASS == "NETCUP_SELF_MANAGED_ROOT_SERVER" else "remote-mcp-client-direct-to-cloudways-host"),
+        "target_class": TARGET_CLASS,
+        "cloudways_in_product_data_path": TARGET_CLASS == "CLOUDWAYS_MANAGED_APPLICATION_SERVER",
         "read_only": True,
         "arbitrary_shell": False,
         "mutation_tools": False,
