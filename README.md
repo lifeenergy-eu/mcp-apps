@@ -36,3 +36,8 @@ Cloudways executes its fixed helper directly as the existing Cloudways user with
 This is a separate OAuth-protected MCP transport for typed controlled execution requests. The transport delegates only to the fixed Project Brain helper; capability resolution, target binding, Run Core orchestration, deterministic execution and verification remain owned by `lifeenergy-eu/project-brain`.
 
 Source presence in this repository does not imply runtime activation. Deployment and live acceptance are controlled exclusively by the current Project Brain canonical state and activation gate.
+
+
+## Magento MCP release and recovery
+
+See [docs/MAGENTO_MCP_RELEASES.md](docs/MAGENTO_MCP_RELEASES.md) for the two **independent** Magento runtimes, verified systemd READ and PM2 WRITE supervisors, SHA/HMAC V2 boundaries, exact-source rollout and rollback, and operator recovery references. The SHA-parameterized preflight and historical WRITE bootstrap scripts are in [deploy/](deploy/). **READ is not deployed by a preflight script; it requires the registered systemd full-release Brain Run Core action.**
