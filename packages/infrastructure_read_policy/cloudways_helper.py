@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import os
@@ -90,7 +91,11 @@ def _cloudways_sibling_log_roots(target: str, configured_roots: list[str]) -> li
 def _sensitive_path(path: str) -> bool:
     normalized = path.replace("\\", "/").lower()
     parts = [p for p in normalized.split("/") if p]
-    if ".ssh" in parts:
+    if ".ssh" in parts or any(re.fullmatch(r"\.env(?:$|[._-].*)", p) for p in parts):
+        return True
+    if any(p in {".gnupg", ".aws", ".kube", ".docker", ".terraform", ".npmrc", ".pypirc", ".netrc", "shadow", "gshadow", "oauth.sqlite", "config.json", "user-data", "userdata"} for p in parts):
+        return True
+    if any(p.endswith((".sql", ".sql.gz", ".dump", ".bak", ".backup", ".jks", ".kdbx", ".keystore")) for p in parts):
         return True
     if any(p in {".env", "wp-config.php", "auth.json", "authorized_keys"} for p in parts):
         return True
@@ -110,6 +115,14 @@ def redact_text(text: str) -> str:
     out = LOG_QUERY_SECRET_RE.sub(lambda m: m.group(1) + "[REDACTED]", out)
     out = LOG_COOKIE_RE.sub(lambda m: m.group(1) + ": [REDACTED]", out)
     out = PRIVATE_KEY_RE.sub("[REDACTED_PRIVATE_KEY_HEADER]", out)
+    if re.search(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----", out, re.I):
+        blocks = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----", re.I | re.S)
+        if not blocks.search(out):
+            return "[REDACTED_PRIVATE_KEY_CONTENT]"
+        out = blocks.sub("[REDACTED_PRIVATE_KEY_CONTENT]", out)
+    out = re.sub(r'''(?im)(["']?(?:client_secret|access_token|refresh_token|password|passwd|api_key|private_key)["']?\s*[:=]\s*["']?)[^"'\s,;}]+''', lambda m: m.group(1) + "[REDACTED]", out)
+    out = re.sub(r"(?i)(\b[a-z][a-z0-9+.-]{1,20}://[^\s/@:]+:)[^\s/@]+(@)", lambda m: m.group(1) + "[REDACTED]" + m.group(2), out)
+    out = re.sub(r"(?i)\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", "[REDACTED_JWT]", out)
     return out
 
 
@@ -136,6 +149,14 @@ class RuntimePolicy:
         if not self.target_id or not self.profile_id:
             raise PolicyError("TARGET_PROFILE_IDENTITY_MISSING")
         self.allowed_roots = [_real_existing(v) for v in _env_json_list("MCP_ALLOWED_ROOTS_JSON")]
+        self.v2_enabled = os.environ.get("MCP_READ_POLICY_V2") == "1"
+        if self.v2_enabled:
+            if self.target_id not in {"SERVER-CLOUDWAYS-MAGENTO", "SERVER-CLOUDWAYS-WORDPRESS"}:
+                raise PolicyError("READ_V2_TARGET_UNREGISTERED")
+            for candidate in _env_json_list("MCP_V2_SYSTEM_LOG_ROOTS_JSON"):
+                if candidate != "/var/log":
+                    raise PolicyError("READ_V2_LOG_ROOT_NOT_REGISTERED")
+                self.allowed_roots.append(_real_existing(candidate))
         self.allowed_log_roots = _cloudways_sibling_log_roots(self.target_id, self.allowed_roots)
         self.allowed_roots.extend(self.allowed_log_roots)
         self.allowed_git_roots = [_real_existing(v) for v in _env_json_list("MCP_ALLOWED_GIT_ROOTS_JSON")]
@@ -153,7 +174,7 @@ class RuntimePolicy:
         if not isinstance(path, str) or not path.startswith("/"):
             raise PolicyError("PATH_ABSOLUTE_REQUIRED")
         real = _real_existing(path)
-        if not _within(real, self.allowed_roots):
+        if not (self.v2_enabled and real == "/etc/os-release") and not _within(real, self.allowed_roots):
             raise PolicyError("PATH_OUTSIDE_ALLOWED_ROOTS")
         if _sensitive_path(real):
             raise PolicyError("SENSITIVE_PATH_DENIED")
@@ -291,11 +312,36 @@ def _file_read(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
     path = policy.allowed_path(str(params.get("path") or ""), require_file=True)
     limit = min(max(int(params.get("limit", policy.max_file_bytes)), 1), policy.max_file_bytes)
     offset = max(int(params.get("offset", 0)), 0)
-    with open(path, "rb") as fh:
-        fh.seek(offset)
-        raw = fh.read(limit)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise PolicyError("READ_FILE_OPEN_DENIED") from exc
+    try:
+        meta = os.fstat(fd)
+        if not stat.S_ISREG(meta.st_mode):
+            raise PolicyError("READ_REGULAR_FILE_REQUIRED")
+        if policy.v2_enabled and path.lower().endswith(".gz"):
+            if meta.st_size > 8_388_608 or offset > 1_048_576:
+                raise PolicyError("GZIP_LIMIT_EXCEEDED")
+            try:
+                with os.fdopen(fd, "rb", closefd=False) as source:
+                    with gzip.GzipFile(fileobj=source) as stream:
+                        expanded = stream.read(min(1_048_577, offset + limit + 1))
+            except (OSError, EOFError) as exc:
+                raise PolicyError("GZIP_DECODE_FAILED") from exc
+            if len(expanded) > 1_048_576:
+                raise PolicyError("GZIP_EXPANSION_LIMIT")
+            raw, truncated = expanded[offset:offset + limit], len(expanded) > offset + limit
+        else:
+            read = os.pread(fd, limit + 1, offset)
+            raw, truncated = read[:limit], len(read) > limit
+        if policy.v2_enabled and b"\x00" in raw:
+            raise PolicyError("READ_BINARY_FILE_DENIED")
+    finally:
+        os.close(fd)
     text = raw.decode("utf-8", "replace")
-    return {"path": path, "offset": offset, "bytes": len(raw), "content": redact_text(text), "truncated": len(raw) == limit}
+    return {"path": path, "offset": offset, "bytes": len(raw), "content": redact_text(text), "truncated": truncated}
 
 
 def _file_stat(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:

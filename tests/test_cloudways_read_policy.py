@@ -192,5 +192,41 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
             self.assertEqual(ex.exception.code,"RELAY_DIAG_SYMLINK_DENIED")
 
 
+    def test_v2_safe_os_and_sensitive_path_variants(self):
+        os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
+        os.environ["MCP_READ_POLICY_V2"] = "1"
+        try:
+            if Path("/etc/os-release").is_file():
+                self.assertIn("content", execute_request({"action":"FILE_READ","path":"/etc/os-release"})["result"])
+            for name in (".env.production", ".env.local", "wp-config.php", "private.key", "dump.sql.gz"):
+                p = self.root / name
+                p.write_text("password=SECRET")
+                with self.assertRaises(PolicyError):
+                    execute_request({"action":"FILE_READ","path":str(p)})
+        finally:
+            os.environ.pop("MCP_READ_POLICY_V2",None)
+            os.environ.pop("MCP_V2_SYSTEM_LOG_ROOTS_JSON",None)
+
+    def test_v2_gzip_redaction_binary_and_root_denial(self):
+        import gzip
+        os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
+        os.environ["MCP_READ_POLICY_V2"] = "1"
+        try:
+            p = self.root / "example.log.1.gz"
+            with gzip.open(p, "wb") as f:
+                f.write(b"password=GZIPSECRET\n")
+            self.assertNotIn("GZIPSECRET", execute_request({"action":"FILE_READ","path":str(p)})["result"]["content"])
+            binary = self.root / "binary.txt"
+            binary.write_bytes(b"safe\x00secret")
+            with self.assertRaises(PolicyError):
+                execute_request({"action":"FILE_READ","path":str(binary)})
+            os.environ["MCP_V2_SYSTEM_LOG_ROOTS_JSON"] = '["/"]'
+            with self.assertRaises(PolicyError):
+                execute_request({"action":"FILE_READ","path":str(p)})
+        finally:
+            os.environ.pop("MCP_READ_POLICY_V2",None)
+            os.environ.pop("MCP_V2_SYSTEM_LOG_ROOTS_JSON",None)
+
+
 if __name__ == "__main__":
     unittest.main()
