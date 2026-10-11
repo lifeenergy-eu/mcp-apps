@@ -95,6 +95,21 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
             })
         self.assertEqual(ctx.exception.code, "SQLITE_SENSITIVE_COLUMN_QUERY_DENIED")
 
+    def test_cookie_header_redaction_real_and_escaped_newlines(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        samples = (
+            "GET /x\nCookie: SID=REAL_COOKIE\nX-End: done",
+            r"GET /x\nCookie: SID=ESCAPED_COOKIE\nX-End: done",
+            "GET /x\r\nSet-Cookie: SID=CRLF_COOKIE\r\nX-End: done",
+            r"GET /x\r\nSet-Cookie: SID=ESCAPED_CRLF_COOKIE\r\nX-End: done",
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                actual = redact_text(sample)
+                self.assertIn("Cookie: [REDACTED]", actual)
+                self.assertNotIn("_COOKIE", actual)
+                self.assertIn("X-End: done", actual)
+
     def test_registered_cloudways_sibling_logs(self) -> None:
         from infrastructure_read_policy import cloudways_helper as module
         public = self.root / "public_html"

@@ -26,7 +26,7 @@ MAX_HELPER_OUTPUT = 2_000_000
 CLOUDWAYS_PUBLIC_ROOT_RE = re.compile(r"^/home/[0-9]+\.cloudwaysapps\.com/[a-z0-9]{10}/public_html$".replace("\\\\", "\\"))
 CLOUDWAYS_LOG_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,240}\.log(?:\\.[0-9]{1,4})?(?:\.gz)?$".replace("\\\\", "\\"))
 LOG_QUERY_SECRET_RE = re.compile(r"(?i)([?&;](?:[a-z0-9_-]*(?:token|auth|key|pass|secret|session|nonce|signature)[a-z0-9_-]*)=)[^&\\s\\\"']+".replace("\\\\", "\\"))
-LOG_COOKIE_RE = re.compile(r"(?i)\\b((?:set-)?cookie)\\s*:\\s*[^\\r\\n]+".replace("\\\\", "\\"))
+LOG_COOKIE_RE = re.compile(r"(?i)(?:(?<![A-Za-z0-9_])|(?<=\\n))((?:set-)?cookie)[ \t]*:[ \t]*(?:(?!\\[nr])[^\r\n])*")
 
 
 
