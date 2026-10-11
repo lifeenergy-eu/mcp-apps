@@ -37,7 +37,10 @@ This is a separate OAuth-protected MCP transport for typed controlled execution 
 
 Source presence in this repository does not imply runtime activation. Deployment and live acceptance are controlled exclusively by the current Project Brain canonical state and activation gate.
 
+## Magento MCP — current activation boundary
 
-## Magento MCP release and recovery
+Cloudways Magento READ (8792) is an independent systemd user service. WRITE / Brain Execute (8793) is an independent OAuth-protected MCP service. **No PM2, overlay, legacy bootstrap or operator shell deploy is authorized by this repository.**
 
-See [docs/MAGENTO_MCP_RELEASES.md](docs/MAGENTO_MCP_RELEASES.md) for the two **independent** Magento runtimes, verified systemd READ and PM2 WRITE supervisors, SHA/HMAC V2 boundaries, exact-source rollout and rollback, and operator recovery references. The SHA-parameterized preflight and historical WRITE bootstrap scripts are in [deploy/](deploy/). **READ is not deployed by a preflight script; it requires the registered systemd full-release Brain Run Core action.**
+Authoritative current state, run controls, target identity, allowed registered actions and exact-SHA activation are owned by `lifeenergy-eu/project-brain` (`PROJECT_INSTRUCTIONS.md`, `control-plane/CURRENT_STATE.json`, `control-plane/EXECUTION_CAPABILITY_CONTRACTS.json`, `control-plane/EXECUTION_TREE.json`).
+
+The previously published PM2-based WRITE bootstrap and preflight scripts were deleted. Prior bootstrap results and source SHAs are historical evidence only; do not copy old instructions from Git history. Until an exact systemd unit and product source SHA are verified and a new guarded action is registered, the old WRITE deploy action is **RETIRED / FAIL_CLOSED**. This does not remove the live MCP transport or its normal registered Run Core task execution.
