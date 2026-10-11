@@ -54,6 +54,11 @@ if TARGET_CLASS == "NETCUP_SELF_MANAGED_ROOT_SERVER":
         raise RuntimeError("NETCUP_READ_OAUTH_REQUIRED")
 elif TARGET_ID.startswith("SERVER-NETCUP-"):
     raise RuntimeError("NETCUP_TARGET_CLASS_REQUIRED")
+# Magento READ V2 is an immutable whole-release deployment. Ignore a stale
+# shell-wrapper helper override so server and helper cannot execute mixed SHAs.
+# Other hosts and V1 retain their existing fixed helper configuration.
+if TARGET_ID == "SERVER-CLOUDWAYS-MAGENTO" and os.environ.get("MCP_READ_POLICY_V2") == "1":
+    os.environ["MCP_READ_HELPER"] = str(HERE / "helper.py")
 HELPER = FixedHelperClient.from_environment(
     default_helper=str(HERE / "helper.py"),
     default_mode="python3_direct",
@@ -134,6 +139,10 @@ def connector_health() -> dict[str, Any]:
         "mutation_tools": False,
         "deploy_tools": False,
         "helper_mode": HELPER.mode,
+        "read_v2_helper_release_local": (
+            HELPER.helper == str(HERE / "helper.py")
+            if TARGET_ID == "SERVER-CLOUDWAYS-MAGENTO" else None
+        ),
         "secret_values_emitted": False,
     }
 
