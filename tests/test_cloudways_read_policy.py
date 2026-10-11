@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from unittest.mock import patch
 import os
 import sqlite3
 import sys
@@ -92,6 +94,39 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
                 "query": "SELECT token FROM sample",
             })
         self.assertEqual(ctx.exception.code, "SQLITE_SENSITIVE_COLUMN_QUERY_DENIED")
+
+    def test_registered_cloudways_sibling_logs(self) -> None:
+        from infrastructure_read_policy import cloudways_helper as module
+        public = self.root / "public_html"
+        public.mkdir()
+        logs = self.root / "logs"
+        logs.mkdir()
+        good = logs / "static_magento-159271-461445.cloudwaysapps.com.access.log"
+        good.write_text('GET /?token_auth=SECRET123&foo=ok HTTP/1.1\\nCookie: PHPSESSID=SECRET456\\n', encoding="utf-8")
+        bad = logs / "private.json"
+        bad.write_text("private", encoding="utf-8")
+        os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
+        os.environ["MCP_ALLOWED_ROOTS_JSON"] = json.dumps([str(public)])
+        pattern = re.compile("^" + re.escape(str(public)) + "$")
+        with patch.object(module, "CLOUDWAYS_PUBLIC_ROOT_RE", pattern):
+            found = execute_request({"action":"FILE_READ","path":str(good)})["result"]["content"]
+            self.assertIn("foo=ok", found)
+            self.assertNotIn("SECRET123", found)
+            self.assertNotIn("SECRET456", found)
+            listed = execute_request({"action":"DIR_LIST","path":str(logs)})["result"]["entries"]
+            self.assertEqual([x["name"] for x in listed],[good.name])
+            with self.assertRaises(PolicyError) as ctx:
+                execute_request({"action":"FILE_READ","path":str(bad)})
+            self.assertEqual(ctx.exception.code, "LOG_PATH_FILE_TYPE_DENIED")
+            link = logs / "escape.log"
+            link.symlink_to(self.root / "hello.txt")
+            with self.assertRaises(PolicyError):
+                execute_request({"action":"FILE_READ","path":str(link)})
+        os.environ["MCP_TARGET_ID"] = "TEST-TARGET"
+        with patch.object(module, "CLOUDWAYS_PUBLIC_ROOT_RE", pattern):
+            with self.assertRaises(PolicyError) as ctx:
+                execute_request({"action":"FILE_READ","path":str(good)})
+            self.assertEqual(ctx.exception.code, "PATH_OUTSIDE_ALLOWED_ROOTS")
 
     def test_unknown_action_denied(self) -> None:
         with self.assertRaises(PolicyError) as ctx:

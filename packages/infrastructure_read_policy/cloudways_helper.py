@@ -23,6 +23,11 @@ SAFE_PRAGMAS = {
     "database_list", "schema_version", "page_count", "freelist_count",
 }
 MAX_HELPER_OUTPUT = 2_000_000
+CLOUDWAYS_PUBLIC_ROOT_RE = re.compile(r"^/home/[0-9]+\.cloudwaysapps\.com/[a-z0-9]{10}/public_html$".replace("\\\\", "\\"))
+CLOUDWAYS_LOG_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,240}\.log(?:\\.[0-9]{1,4})?(?:\.gz)?$".replace("\\\\", "\\"))
+LOG_QUERY_SECRET_RE = re.compile(r"(?i)([?&;](?:[a-z0-9_-]*(?:token|auth|key|pass|secret|session|nonce|signature)[a-z0-9_-]*)=)[^&\\s\\\"']+".replace("\\\\", "\\"))
+LOG_COOKIE_RE = re.compile(r"(?i)\\b((?:set-)?cookie)\\s*:\\s*[^\\r\\n]+".replace("\\\\", "\\"))
+
 
 
 class PolicyError(RuntimeError):
@@ -62,6 +67,26 @@ def _within(path: str, roots: list[str]) -> bool:
     return False
 
 
+def _cloudways_sibling_log_roots(target: str, configured_roots: list[str]) -> list[str]:
+    # A root must already be explicitly authorized for this same Cloudways app.
+    if target not in {"SERVER-CLOUDWAYS-MAGENTO", "SERVER-CLOUDWAYS-WORDPRESS"}:
+        return []
+    found = []
+    for root in configured_roots:
+        if not CLOUDWAYS_PUBLIC_ROOT_RE.fullmatch(root):
+            continue
+        logs = os.path.join(os.path.dirname(root), "logs")
+        if os.path.islink(logs) or not os.path.isdir(logs):
+            continue
+        try:
+            real = _real_existing(logs)
+        except PolicyError:
+            continue
+        if real == logs and not _sensitive_path(real):
+            found.append(real)
+    return sorted(set(found))
+
+
 def _sensitive_path(path: str) -> bool:
     normalized = path.replace("\\", "/").lower()
     parts = [p for p in normalized.split("/") if p]
@@ -82,6 +107,8 @@ def redact_text(text: str) -> str:
     out = text
     for pattern in SECRET_VALUE_PATTERNS:
         out = pattern.sub(lambda m: m.group(1) + "=[REDACTED]", out)
+    out = LOG_QUERY_SECRET_RE.sub(lambda m: m.group(1) + "[REDACTED]", out)
+    out = LOG_COOKIE_RE.sub(lambda m: m.group(1) + ": [REDACTED]", out)
     out = PRIVATE_KEY_RE.sub("[REDACTED_PRIVATE_KEY_HEADER]", out)
     return out
 
@@ -109,6 +136,8 @@ class RuntimePolicy:
         if not self.target_id or not self.profile_id:
             raise PolicyError("TARGET_PROFILE_IDENTITY_MISSING")
         self.allowed_roots = [_real_existing(v) for v in _env_json_list("MCP_ALLOWED_ROOTS_JSON")]
+        self.allowed_log_roots = _cloudways_sibling_log_roots(self.target_id, self.allowed_roots)
+        self.allowed_roots.extend(self.allowed_log_roots)
         self.allowed_git_roots = [_real_existing(v) for v in _env_json_list("MCP_ALLOWED_GIT_ROOTS_JSON")]
         self.allowed_services = set(_env_json_list("MCP_ALLOWED_SERVICES_JSON"))
         self.allowed_sqlite = [_real_existing(v) for v in _env_json_list("MCP_ALLOWED_SQLITE_PATHS_JSON")]
@@ -128,6 +157,9 @@ class RuntimePolicy:
             raise PolicyError("PATH_OUTSIDE_ALLOWED_ROOTS")
         if _sensitive_path(real):
             raise PolicyError("SENSITIVE_PATH_DENIED")
+        if any(_within(real, [root]) for root in self.allowed_log_roots):
+            if real not in self.allowed_log_roots and (os.path.dirname(real) not in self.allowed_log_roots or not CLOUDWAYS_LOG_FILE_RE.fullmatch(os.path.basename(real))):
+                raise PolicyError("LOG_PATH_FILE_TYPE_DENIED")
         if require_file is True and not os.path.isfile(real):
             raise PolicyError("FILE_REQUIRED")
         if require_file is False and not os.path.isdir(real):
@@ -290,10 +322,8 @@ def _dir_list(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
             if _sensitive_path(candidate):
                 continue
             try:
-                real = os.path.realpath(candidate, strict=True)
-            except OSError:
-                continue
-            if not _within(real, policy.allowed_roots):
+                real = policy.allowed_path(candidate)
+            except (OSError, PolicyError):
                 continue
             rows.append({
                 "name": entry.name,
@@ -320,13 +350,12 @@ def _file_find(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
             if _sensitive_path(candidate):
                 continue
             try:
-                real = os.path.realpath(candidate, strict=True)
-            except OSError:
+                real = policy.allowed_path(candidate)
+            except (OSError, PolicyError):
                 continue
-            if _within(real, policy.allowed_roots):
-                out.append(real)
-                if len(out) >= limit:
-                    return {"path": path, "matches": out, "truncated": True}
+            out.append(real)
+            if len(out) >= limit:
+                return {"path": path, "matches": out, "truncated": True}
     return {"path": path, "matches": out, "truncated": False}
 
 
