@@ -172,7 +172,9 @@ class RuntimePolicy:
         if not isinstance(path, str) or not path.startswith("/"):
             raise PolicyError("PATH_ABSOLUTE_REQUIRED")
         real = _real_existing(path)
-        if not (self.v2_enabled and real == "/etc/os-release") and not _within(real, self.allowed_roots):
+        safe_os_release = (self.v2_enabled and path == "/etc/os-release" and
+                           real in {"/etc/os-release", "/usr/lib/os-release"})
+        if not safe_os_release and not _within(real, self.allowed_roots):
             raise PolicyError("PATH_OUTSIDE_ALLOWED_ROOTS")
         if _sensitive_path(real):
             raise PolicyError("SENSITIVE_PATH_DENIED")

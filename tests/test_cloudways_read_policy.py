@@ -213,6 +213,27 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
             self.assertEqual(ex.exception.code,"RELAY_DIAG_SYMLINK_DENIED")
 
 
+    def test_v2_os_release_symlink_target_is_exactly_registered(self):
+        from infrastructure_read_policy import cloudways_helper as module
+        os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
+        os.environ["MCP_READ_POLICY_V2"] = "1"
+        original = module._real_existing
+        try:
+            def synthetic_resolve(p):
+                if p == "/etc/os-release":
+                    return "/usr/lib/os-release"
+                if p == "/etc/passwd":
+                    return "/usr/lib/passwd"
+                return original(p)
+            with patch.object(module, "_real_existing", side_effect=synthetic_resolve):
+                policy = module.RuntimePolicy()
+                self.assertEqual(policy.allowed_path("/etc/os-release"), "/usr/lib/os-release")
+                with self.assertRaises(module.PolicyError) as ex:
+                    policy.allowed_path("/etc/passwd")
+                self.assertEqual(ex.exception.code, "PATH_OUTSIDE_ALLOWED_ROOTS")
+        finally:
+            os.environ.pop("MCP_READ_POLICY_V2", None)
+
     def test_v2_safe_os_and_sensitive_path_variants(self):
         os.environ["MCP_TARGET_ID"] = "SERVER-CLOUDWAYS-MAGENTO"
         os.environ["MCP_READ_POLICY_V2"] = "1"
