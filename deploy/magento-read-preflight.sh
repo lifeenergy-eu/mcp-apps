@@ -64,7 +64,7 @@ try:
     check(unit in cgroup,'READ_CGROUP_SERVICE_MISMATCH')
     raw=(proc/'environ').read_bytes()
     pinned=[]
-    for entry in raw.split(b'\\0'):
+    for entry in raw.split(bytes([0])):
         if b'=' not in entry: continue
         k,v=entry.split(b'=',1)
         if current_sha.encode() in v:
