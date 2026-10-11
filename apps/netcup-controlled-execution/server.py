@@ -46,7 +46,13 @@ def validate_helper(value: str) -> Path:
         raise RuntimeError("NETCUP_SIGNED_HELPER_PATH_DENIED") from exc
     if len(relative.parts) != 3 or not SOURCE_PATTERN.fullmatch(relative.parts[0]) or relative.parts[1:] != ("netcup_agent", "write_entry.py"):
         raise RuntimeError("NETCUP_SIGNED_HELPER_PATH_DENIED")
-    if path.is_symlink() or not path.is_file() or path.resolve(strict=True) != path or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
+    # Reject writable/symlinked Python import roots as well as the helper itself.
+    for item in (Path("/opt"), Path("/opt/project-brain"), Path("/opt/project-brain/netcup-control"), root,
+                 root / relative.parts[0], path.parent, path, path.parent / "__init__.py", path.parent / "agent.py"):
+        if (item.is_symlink() or not item.exists() or item.resolve(strict=True) != item
+                or item.stat().st_uid != 0 or item.stat().st_mode & 0o022):
+            raise RuntimeError("NETCUP_SIGNED_HELPER_INTEGRITY_DENIED")
+    if not path.is_file() or not (path.parent / "agent.py").is_file():
         raise RuntimeError("NETCUP_SIGNED_HELPER_INTEGRITY_DENIED")
     return path
 
@@ -112,7 +118,7 @@ def submit_signed_run_core_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
         return {"status": "FAIL_CLOSED", "code": "NETCUP_WRITE_TICKET_TOO_LARGE"}
     try:
         proc = subprocess.run(
-            ["/usr/bin/sudo", "-n", str(HELPER)],
+            ["/usr/bin/sudo", "-n", "/usr/bin/env", f"PYTHONPATH={HELPER.parent.parent}", "/usr/bin/python3", "-P", str(HELPER)],
             input=raw, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin"},
             timeout=60, check=False,

@@ -22,7 +22,11 @@ class NetcupSignedWriteMcpTests(unittest.TestCase):
         self.assertIn("path.resolve(strict=True) != path", source)
         self.assertIn("NETCUP_WRITE_OAUTH_SCOPE_MISMATCH", source)
         self.assertIn("NETCUP_SIGNED_HELPER_PATH_DENIED", source)
-        self.assertIn('"/usr/bin/sudo", "-n", str(HELPER)', source)
+        self.assertIn('"/usr/bin/sudo", "-n", "/usr/bin/env"', source)
+        self.assertIn('f"PYTHONPATH={HELPER.parent.parent}"', source)
+        self.assertIn('"/usr/bin/python3", "-P", str(HELPER)', source)
+        self.assertIn('path.parent / "agent.py"', source)
+        self.assertNotIn('"/usr/bin/sudo", "-n", str(HELPER)', source)
         self.assertNotIn("shell=True", source)
 
 if __name__ == "__main__":
