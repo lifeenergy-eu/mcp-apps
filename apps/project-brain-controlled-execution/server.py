@@ -178,11 +178,15 @@ def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str
     return _legacy_handoff("RUN_REGISTERED_TASK")
 
 @mcp.tool(annotations=WRITE)
-def brain_execute(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
-    """Deploy an exact GitHub commit. Set task to {repository, commit_sha}; Brain owns all Run Core planning and verification."""
+def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
+    """Deploy one registered GitHub repository at an exact 40-character commit SHA.
+
+    Brain resolves the internal execution plan, targets, prerequisites and
+    verification. No task_id, intent_key, runner or steps are caller inputs.
+    """
     return helper_call("RUN_REGISTERED_TASK", {
-        "task": task,
-        "wait_seconds": wait_seconds,
+        "task": {"repository": repository, "commit_sha": commit_sha},
+        "wait_seconds": 8,
     })
 
 
