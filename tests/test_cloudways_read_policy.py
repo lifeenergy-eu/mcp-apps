@@ -270,5 +270,36 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
             os.environ.pop("MCP_V2_SYSTEM_LOG_ROOTS_JSON",None)
 
 
+    def test_xml_secret_element_redaction_with_namespaces(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        marker = "PB_SYNTHETIC_SECRET_XML_742"
+        samples = (
+            "<password>" + marker + "</password>",
+            "<config><db_password>" + marker + "</db_password></config>",
+            "<x:client_secret>" + marker + "</x:client_secret>",
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                result = redact_text(sample)
+                self.assertNotIn(marker, result)
+                self.assertIn("[REDACTED]", result)
+        self.assertEqual(redact_text("<username>alice</username>"), "<username>alice</username>")
+
+    def test_php_secret_array_and_associative_key_redaction(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        marker = "PB_SYNTHETIC_SECRET_PHP_831"
+        samples = (
+            "$db['password'] = '" + marker + "';",
+            '$db["client_secret"] = "' + marker + '";',
+            "'api_key' => '" + marker + "',",
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                result = redact_text(sample)
+                self.assertNotIn(marker, result)
+                self.assertIn("[REDACTED]", result)
+        self.assertEqual(redact_text("$db['username'] = 'alice';"), "$db['username'] = 'alice';")
+
+
 if __name__ == "__main__":
     unittest.main()

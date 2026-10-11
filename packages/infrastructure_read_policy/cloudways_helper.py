@@ -31,6 +31,19 @@ LOG_COOKIE_RE = re.compile(r"(?i)((?:set-)?cookie)[ \t]*:[ \t]*(?:(?!\\[nr]|[\r\
 PRIVATE_KEY_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----", re.I | re.S)
 
 
+# Redact secret-bearing XML elements and PHP array assignments in log/text output.
+# These complement the generic assignment, URL, cookie and PEM sanitizers.
+XML_SECRET_ELEMENT_RE = re.compile(
+    r"(?is)(<(?P<tag>(?:[A-Za-z_][\w.-]*:)?(?:[A-Za-z0-9]+[_-])?(?:password|passwd|secret|token|credential|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key))\b[^>]*>)([^<]*)(</(?P=tag)\s*>)"
+)
+PHP_SECRET_ARRAY_RE = re.compile(
+    r"""(?i)(\[\s*(['"])(?:[A-Za-z0-9]+[_-])?(?:password|passwd|secret|token|credential|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key)\2\s*\]\s*(?:=>|=)\s*)(['"])((?:\\.|(?!\3)[^\r\n])*)\3"""
+)
+PHP_SECRET_FIELD_RE = re.compile(
+    r"""(?i)((['"])(?:[A-Za-z0-9]+[_-])?(?:password|passwd|secret|token|credential|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key)\2\s*=>\s*)(['"])((?:\\.|(?!\3)[^\r\n])*)\3"""
+)
+
+
 
 class PolicyError(RuntimeError):
     def __init__(self, code: str, details: dict[str, Any] | None = None) -> None:
@@ -111,6 +124,9 @@ def _sensitive_path(path: str) -> bool:
 
 def redact_text(text: str) -> str:
     out = text
+    out = XML_SECRET_ELEMENT_RE.sub(lambda m: m.group(1) + "[REDACTED]" + m.group(4), out)
+    out = PHP_SECRET_ARRAY_RE.sub(lambda m: m.group(1) + m.group(3) + "[REDACTED]" + m.group(3), out)
+    out = PHP_SECRET_FIELD_RE.sub(lambda m: m.group(1) + m.group(3) + "[REDACTED]" + m.group(3), out)
     for pattern in SECRET_VALUE_PATTERNS:
         out = pattern.sub(lambda m: m.group(1) + "=[REDACTED]", out)
     out = LOG_QUERY_SECRET_RE.sub(lambda m: m.group(1) + "[REDACTED]", out)
