@@ -65,6 +65,19 @@ Required canonical correction before an authorized READ deploy:
 
 Separate target; do not assume the Magento systemd unit, credentials, source root, or health state applies. Current connected WordPress READ plugin returned internal tool errors in the Oct 11 session. Separate runtime identity and governed release needed.
 
+## Source attestation and current documentation commits
+
+**Important:** The documentation and operator-preflight commits written on 2026-10-11 were ordinary GitHub documentation commits, **not** HMAC V2-attested deployment commits. Do **not** deploy the documentation HEAD as an application release. The earlier READ feature commit `38d02dd8c9cc03cd45ef1641858825a03f4c18b7` was created with canonical HMAC V2 commit trailers and remains the intended immutable **READ source candidate**, pending registered systemd deployment. For a future release including this documentation, use the registered HMAC V2 atomic source mutation process and independently verify the new commit's attestation.
+
+Available scripts, all SHA-parameterized:
+
+- `deploy/magento-write-operator-bootstrap.sh MCP_APPS_SHA40 BRAIN_SHA40`: preserved full operator bootstrap source, recovery **only**, not a replacement for Run Core.
+- `deploy/magento-write-bootstrap.sh MCP_APPS_SHA40 BRAIN_SHA40`: wrapper for an **already locally present** bootstrap, no new runner.
+- `deploy/magento-write-preflight.sh MCP_APPS_SHA40 BRAIN_SHA40`: READ-ONLY diagnostics.
+- `deploy/magento-read-preflight.sh TARGET_MCP_APPS_SHA40`: READ-ONLY systemd exact PID, port 8792, SHA and environment-key diagnostics. **Not deployment.**
+
+These scripts are deliberately separate; WRITE scripts must never restart the READ unit, and READ preflight must never alter the WRITE PM2 service.
+
 ## No-deploy diagnostics
 
 ```bash
