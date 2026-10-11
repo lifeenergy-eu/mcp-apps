@@ -143,6 +143,27 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
                 execute_request({"action":"FILE_READ","path":str(good)})
             self.assertEqual(ctx.exception.code, "PATH_OUTSIDE_ALLOWED_ROOTS")
 
+    def test_private_key_whole_block_redacted(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        sample = "BEGIN\n-----BEGIN RSA PRIVATE KEY-----\nBASE64_SECRET_PAYLOAD\n-----END RSA PRIVATE KEY-----\nEND"
+        result = redact_text(sample)
+        self.assertIn("[REDACTED_PRIVATE_KEY_CONTENT]", result)
+        self.assertNotIn("BASE64_SECRET_PAYLOAD", result)
+        self.assertNotIn("PRIVATE KEY-----", result)
+
+    def test_cookie_regression_real_and_literal_escaped(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        samples = (
+            "GET /\nCookie: SID=REAL_COOKIE\nX-End: done",
+            r"GET /\nCookie: SID=ESCAPED_COOKIE\nX-End: done",
+            "GET /\r\nSet-Cookie: SID=CRLF_COOKIE\r\nX-End: done",
+            r"GET /\r\nSet-Cookie: SID=ESCAPED_CRLF_COOKIE\r\nX-End: done",
+        )
+        for sample in samples:
+            result = redact_text(sample)
+            self.assertNotIn("_COOKIE",result)
+            self.assertIn("Cookie: [REDACTED]",result)
+
     def test_unknown_action_denied(self) -> None:
         with self.assertRaises(PolicyError) as ctx:
             execute_request({"action": "SHELL"})

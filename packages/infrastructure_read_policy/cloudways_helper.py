@@ -27,7 +27,8 @@ MAX_HELPER_OUTPUT = 2_000_000
 CLOUDWAYS_PUBLIC_ROOT_RE = re.compile(r"^/home/[0-9]+\.cloudwaysapps\.com/[a-z0-9]{10}/public_html$".replace("\\\\", "\\"))
 CLOUDWAYS_LOG_FILE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,240}\.log(?:\\.[0-9]{1,4})?(?:\.gz)?$".replace("\\\\", "\\"))
 LOG_QUERY_SECRET_RE = re.compile(r"(?i)([?&;](?:[a-z0-9_-]*(?:token|auth|key|pass|secret|session|nonce|signature)[a-z0-9_-]*)=)[^&\\s\\\"']+".replace("\\\\", "\\"))
-LOG_COOKIE_RE = re.compile(r"(?i)(?:(?<![A-Za-z0-9_])|(?<=\\n))((?:set-)?cookie)[ \t]*:[ \t]*(?:(?!\\[nr])[^\r\n])*")
+LOG_COOKIE_RE = re.compile(r"(?i)((?:set-)?cookie)[ \t]*:[ \t]*(?:(?!\\[nr]|[\r\n])[\s\S])*")
+PRIVATE_KEY_BLOCK_RE = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----", re.I | re.S)
 
 
 
@@ -114,12 +115,9 @@ def redact_text(text: str) -> str:
         out = pattern.sub(lambda m: m.group(1) + "=[REDACTED]", out)
     out = LOG_QUERY_SECRET_RE.sub(lambda m: m.group(1) + "[REDACTED]", out)
     out = LOG_COOKIE_RE.sub(lambda m: m.group(1) + ": [REDACTED]", out)
-    out = PRIVATE_KEY_RE.sub("[REDACTED_PRIVATE_KEY_HEADER]", out)
-    if re.search(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----", out, re.I):
-        blocks = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----", re.I | re.S)
-        if not blocks.search(out):
-            return "[REDACTED_PRIVATE_KEY_CONTENT]"
-        out = blocks.sub("[REDACTED_PRIVATE_KEY_CONTENT]", out)
+    out = PRIVATE_KEY_BLOCK_RE.sub("[REDACTED_PRIVATE_KEY_CONTENT]", out)
+    if PRIVATE_KEY_RE.search(out):
+        return "[REDACTED_PRIVATE_KEY_CONTENT]"
     out = re.sub(r'''(?im)(["']?(?:client_secret|access_token|refresh_token|password|passwd|api_key|private_key)["']?\s*[:=]\s*["']?)[^"'\s,;}]+''', lambda m: m.group(1) + "[REDACTED]", out)
     out = re.sub(r"(?i)(\b[a-z][a-z0-9+.-]{1,20}://[^\s/@:]+:)[^\s/@]+(@)", lambda m: m.group(1) + "[REDACTED]" + m.group(2), out)
     out = re.sub(r"(?i)\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", "[REDACTED_JWT]", out)
@@ -178,6 +176,9 @@ class RuntimePolicy:
             raise PolicyError("PATH_OUTSIDE_ALLOWED_ROOTS")
         if _sensitive_path(real):
             raise PolicyError("SENSITIVE_PATH_DENIED")
+        if self.v2_enabled and _within(real, ["/var/log"]) and os.path.isfile(real):
+            if not (CLOUDWAYS_LOG_FILE_RE.fullmatch(os.path.basename(real)) or os.path.basename(real) in {"syslog","messages"}):
+                raise PolicyError("LOG_PATH_FILE_TYPE_DENIED")
         if any(_within(real, [root]) for root in self.allowed_log_roots):
             if real not in self.allowed_log_roots and (os.path.dirname(real) not in self.allowed_log_roots or not CLOUDWAYS_LOG_FILE_RE.fullmatch(os.path.basename(real))):
                 raise PolicyError("LOG_PATH_FILE_TYPE_DENIED")
@@ -308,6 +309,18 @@ def _socket_list(_: RuntimePolicy, __: dict[str, Any]) -> dict[str, Any]:
     return _run(["/usr/bin/ss", "-lntuH"], accepted={0, 1})
 
 
+def _check_file_handle(fd: int, path: str) -> os.stat_result:
+    meta = os.fstat(fd)
+    if not stat.S_ISREG(meta.st_mode):
+        raise PolicyError("READ_REGULAR_FILE_REQUIRED")
+    try:
+        if os.path.realpath(f"/proc/self/fd/{fd}") != path:
+            raise PolicyError("FILE_HANDLE_PATH_CHANGED")
+    except OSError as exc:
+        raise PolicyError("FILE_HANDLE_ATTESTATION_FAILED") from exc
+    return meta
+
+
 def _file_read(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
     path = policy.allowed_path(str(params.get("path") or ""), require_file=True)
     limit = min(max(int(params.get("limit", policy.max_file_bytes)), 1), policy.max_file_bytes)
@@ -318,9 +331,7 @@ def _file_read(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
     except OSError as exc:
         raise PolicyError("READ_FILE_OPEN_DENIED") from exc
     try:
-        meta = os.fstat(fd)
-        if not stat.S_ISREG(meta.st_mode):
-            raise PolicyError("READ_REGULAR_FILE_REQUIRED")
+        meta = _check_file_handle(fd, path)
         if policy.v2_enabled and path.lower().endswith(".gz"):
             if meta.st_size > 8_388_608 or offset > 1_048_576:
                 raise PolicyError("GZIP_LIMIT_EXCEEDED")
@@ -407,17 +418,26 @@ def _file_find(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
 
 def _hash_file(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
     path = policy.allowed_path(str(params.get("path") or ""), require_file=True)
-    h = hashlib.sha256()
-    size = 0
-    with open(path, "rb") as fh:
-        while True:
-            chunk = fh.read(1024 * 1024)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(path, flags)
+    except OSError as exc:
+        raise PolicyError("HASH_FILE_OPEN_DENIED") from exc
+    try:
+        meta = _check_file_handle(fd, path)
+        if meta.st_size > 8_388_608:
+            raise PolicyError("HASH_FILE_LIMIT_EXCEEDED")
+        h = hashlib.sha256()
+        size = 0
+        while size < meta.st_size:
+            chunk = os.pread(fd, min(65536, meta.st_size - size), size)
             if not chunk:
                 break
             h.update(chunk)
             size += len(chunk)
-    return {"path": path, "sha256": h.hexdigest(), "size": size}
-
+        return {"path": path, "sha256": h.hexdigest(), "size": size}
+    finally:
+        os.close(fd)
 
 def _git_read(policy: RuntimePolicy, params: dict[str, Any]) -> dict[str, Any]:
     repo = policy.git_root(str(params.get("repo") or ""))
