@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "app_id": "NETCUP-TARGET-CONTROLLED-EXECUTION",
   "name": "Project Brain Netcup Target Controlled Execution",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "SOURCE_ONLY_NOT_DEPLOYED",
   "source_repository": "lifeenergy-eu/mcp-apps",
   "target_id": "SERVER-NETCUP-WORDPRESS",
@@ -34,5 +34,6 @@
   "tools": [
     "connector_health",
     "submit_signed_run_core_ticket"
-  ]
+  ],
+  "security_gate": "SIGNED_VALID_TICKET_ACCEPTANCE_AND_IDENTICAL_REPLAY_E2E_REQUIRED"
 }

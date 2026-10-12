@@ -29,6 +29,8 @@ class NetcupSignedWriteMcpTests(unittest.TestCase):
         self.assertIn('"/usr/bin/python3", "-P", str(HELPER)', source)
         self.assertIn('path.parent / "agent.py"', source)
         self.assertNotIn('"/usr/bin/sudo", "-n", str(HELPER)', source)
+        self.assertIn("TICKET_REPLAY_REJECTED", source)
+        self.assertIn("safe_codes", source)
         self.assertNotIn("shell=True", source)
 
 if __name__ == "__main__":

@@ -126,6 +126,10 @@ def submit_signed_run_core_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
         if not proc.stdout or len(proc.stdout) > 16384:
             return {"status": "FAIL_CLOSED", "code": "NETCUP_WRITE_HELPER_RESPONSE_INVALID"}
         response = json.loads(proc.stdout)
+        # Only disclose fixed verifier codes; never expose helper stderr or secrets.
+        safe_codes = {"TICKET_REPLAY_REJECTED", "TICKET_TIME_REJECTED", "TICKET_TARGET_MISMATCH", "TICKET_SIGNATURE_REJECTED", "WRITE_SOURCE_SHA_MISMATCH", "ACTION_NOT_REGISTERED"}
+        if proc.returncode != 0 and isinstance(response, dict) and response.get("status") == "FAIL_CLOSED" and response.get("code") in safe_codes:
+            return {"status": "FAIL_CLOSED", "code": response["code"], "target_id": TARGET}
         if not isinstance(response, dict) or response.get("target_id") != TARGET or response.get("action") != ticket["action"] or response.get("job_id") != ticket["job_id"] or response.get("status") != "PASS" or proc.returncode != 0:
             return {"status": "FAIL_CLOSED", "code": "NETCUP_WRITE_HELPER_REJECTED"}
         return response
