@@ -45,6 +45,14 @@ PHP_SECRET_FIELD_RE = re.compile(
 
 
 
+XML_SECRET_CDATA_RE = re.compile(
+    r"(?is)(<(?P<tag>(?:[A-Za-z_][\w.-]*:)?(?:[A-Za-z0-9]+[_-])?(?:password|passwd|secret|token|credential|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key))\b[^>]*>\s*<!\[CDATA\[)(.*?)(\]\]>\s*</(?P=tag)\s*>)"
+)
+PHP_SECRET_DEFINE_RE = re.compile(
+    r"""(?i)(\bdefine\s*\(\s*(['"])(?:[A-Za-z0-9]+[_-])?(?:password|passwd|secret|token|credential|api[_-]?key|client[_-]?secret|access[_-]?token|refresh[_-]?token|private[_-]?key)\2\s*,\s*)(['"])((?:\\.|(?!\3)[^\r\n])*)\3"""
+)
+
+
 class PolicyError(RuntimeError):
     def __init__(self, code: str, details: dict[str, Any] | None = None) -> None:
         super().__init__(code)
@@ -124,6 +132,8 @@ def _sensitive_path(path: str) -> bool:
 
 def redact_text(text: str) -> str:
     out = text
+    out = XML_SECRET_CDATA_RE.sub(lambda m: m.group(1) + "[REDACTED]" + m.group(4), out)
+    out = PHP_SECRET_DEFINE_RE.sub(lambda m: m.group(1) + m.group(3) + "[REDACTED]" + m.group(3), out)
     out = XML_SECRET_ELEMENT_RE.sub(lambda m: m.group(1) + "[REDACTED]" + m.group(4), out)
     out = PHP_SECRET_ARRAY_RE.sub(lambda m: m.group(1) + m.group(3) + "[REDACTED]" + m.group(3), out)
     out = PHP_SECRET_FIELD_RE.sub(lambda m: m.group(1) + m.group(3) + "[REDACTED]" + m.group(3), out)

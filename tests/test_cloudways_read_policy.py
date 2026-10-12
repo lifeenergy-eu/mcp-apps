@@ -301,5 +301,38 @@ class CloudwaysReadPolicyTests(unittest.TestCase):
         self.assertEqual(redact_text("$db['username'] = 'alice';"), "$db['username'] = 'alice';")
 
 
+    def test_xml_secret_cdata_redaction(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        marker = "PB_SYNTHETIC_SECRET_CDATA_1203"
+        samples = (
+            "<password><![CDATA[" + marker + "]]></password>",
+            "<db_password><![CDATA[" + marker + "]]></db_password>",
+            "<x:client_secret>\n <![CDATA[" + marker + "]]></x:client_secret>",
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                result = redact_text(sample)
+                self.assertNotIn(marker, result)
+                self.assertIn("[REDACTED]", result)
+        self.assertEqual(redact_text("<username><![CDATA[alice]]></username>"),
+                         "<username><![CDATA[alice]]></username>")
+
+    def test_php_define_secret_constant_redaction(self) -> None:
+        from infrastructure_read_policy.cloudways_helper import redact_text
+        marker = "PB_SYNTHETIC_SECRET_DEFINE_1203"
+        samples = (
+            "define('DB_PASSWORD', '" + marker + "');",
+            'define("CLIENT_SECRET", "' + marker + '");',
+            "DEFINE ( 'API_KEY' , '" + marker + "' );",
+        )
+        for sample in samples:
+            with self.subTest(sample=sample):
+                result = redact_text(sample)
+                self.assertNotIn(marker, result)
+                self.assertIn("[REDACTED]", result)
+        self.assertEqual(redact_text("define('DB_USERNAME', 'alice');"),
+                         "define('DB_USERNAME', 'alice');")
+
+
 if __name__ == "__main__":
     unittest.main()
