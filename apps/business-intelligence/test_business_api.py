@@ -16,11 +16,21 @@ class ApiAdapterTests(unittest.TestCase):
         class Response:
             def __enter__(self): return self
             def __exit__(self, *args): return False
-            def read(self, n): return b'{"data":{"oib":"12345678901"}}'
+            def read(self, n): return b'{"data":{"oib":"12345678901"},"meta":{"as_of":"2026-10-12T00:00:00Z","provenance":[]}}'
         client=BusinessApiClient("https://example.org", "token")
         with patch("business_api.urlopen", return_value=Response()) as call:
             value=client.company_by_oib("12345678901")
         self.assertEqual(value["data"]["oib"],"12345678901")
         self.assertEqual(call.call_args.args[0].get_header("Authorization"),"Bearer token")
+
+    def test_missing_provenance_rejected(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n): return b'{"data":{"oib":"12345678901"}}'
+        client=BusinessApiClient("https://example.org", "token")
+        with patch("business_api.urlopen", return_value=Response()):
+            with self.assertRaisesRegex(BusinessApiError, "PROVENANCE_ENVELOPE_REQUIRED"):
+                client.company_by_oib("12345678901")
 
 if __name__ == "__main__": unittest.main()
