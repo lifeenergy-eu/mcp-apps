@@ -1,6 +1,5 @@
 import unittest
 from unittest.mock import patch
-from io import BytesIO
 from business_api import BusinessApiClient, BusinessApiError
 
 class ApiAdapterTests(unittest.TestCase):
