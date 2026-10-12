@@ -20,7 +20,7 @@ class BusinessApiError(RuntimeError):
 
 class BusinessApiClient:
     def __init__(self, base_url: str, token: str):
-        if not base_url.startswith("https://") or not token:
+        if not base_url.startswith("https://") or not token or "@" in base_url.split("/")[2]:
             raise BusinessApiError("HTTPS_BASE_URL_AND_SERVICE_TOKEN_REQUIRED")
         self.base_url = base_url.rstrip("/")
         self.token = token
@@ -50,6 +50,11 @@ class BusinessApiClient:
             raise BusinessApiError("BUSINESS_API_INVALID_JSON") from exc
         if not isinstance(result, dict):
             raise BusinessApiError("BUSINESS_API_INVALID_ENVELOPE")
+        if "data" not in result or not isinstance(result.get("meta"), dict):
+            raise BusinessApiError("BUSINESS_API_PROVENANCE_ENVELOPE_REQUIRED")
+        meta = result["meta"]
+        if not isinstance(meta.get("provenance"), list) or not isinstance(meta.get("as_of"), str):
+            raise BusinessApiError("BUSINESS_API_PROVENANCE_ENVELOPE_REQUIRED")
         return result
 
     def company_by_oib(self, oib: str):
