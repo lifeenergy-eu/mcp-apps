@@ -120,7 +120,8 @@ def connector_health() -> dict[str, Any]:
     body["oauth_scopes"] = OAUTH_SCOPES
     body["mcp_path"] = "/mcp"
     body["primary_execution_tool"] = "brain_execute"
-    body["public_execution_tool_count"] = 1
+    body["public_tools"] = ["brain_source_mutate", "brain_execute", "brain_operation_status"]
+    body["public_execution_tool_count"] = 3
     body["legacy_write_tools"] = "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE"
     body["canonical_deploy_policy_ref"] = "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1.canonical_delivery_pipeline_v1"
     return body
@@ -194,9 +195,9 @@ def brain_source_mutate(
 
 
 @mcp.tool(annotations=RO)
-def brain_operation_status(operation_id: str) -> dict[str, Any]:
+def brain_operation_status(request_handle: str) -> dict[str, Any]:
     """Read a previously issued canonical Run Core request handle."""
-    return helper_call("EXECUTION_STATUS", {"request_handle": operation_id})
+    return helper_call("EXECUTION_STATUS", {"request_handle": request_handle})
 
 
 @mcp.tool(annotations=WRITE)
