@@ -195,9 +195,9 @@ def brain_source_mutate(
 
 
 @mcp.tool(annotations=RO)
-def brain_operation_status(request_handle: str) -> dict[str, Any]:
-    """Read a previously issued canonical Run Core request handle."""
-    return helper_call("EXECUTION_STATUS", {"request_handle": request_handle})
+def brain_operation_status(operation_id: str) -> dict[str, Any]:
+    """Read a durable Run Core receipt or fixed Brain self-deploy operation."""
+    return helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": operation_id})
 
 
 @mcp.tool(annotations=WRITE)
