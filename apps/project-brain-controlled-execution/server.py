@@ -50,7 +50,7 @@ class PluginFastMCP(FastMCP):
         tools = await super().list_tools()
         # The Brain MCP exposes exactly one ChatGPT-facing execution tool.
         # Legacy handlers remain defined only to respond to stale tool callers.
-        tools = [tool for tool in tools if tool.name == "brain_execute"]
+        tools = [tool for tool in tools if tool.name in {"brain_execute", "brain_source_mutate", "brain_operation_status"}]
         if AUTH_MODE != "oauth_private":
             return tools
         schemes = [{"type": "oauth2", "scopes": OAUTH_SCOPES}]
@@ -176,6 +176,28 @@ def run_registered_database_workflow(
 def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
     """Send only a registered task intent to Project Brain; no runner, SHA, target or plan."""
     return _legacy_handoff("RUN_REGISTERED_TASK")
+
+@mcp.tool(annotations=WRITE)
+def brain_source_mutate(
+    repository: str, base_sha: str, commit_message: str,
+    idempotency_key: str, operations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Commit registered repository source through canonical HMAC V2 Run Core.
+
+    Never deploys and never accepts a raw runner, plan, target or secret.
+    """
+    return helper_call("PUBLIC_SOURCE_MUTATION", {
+        "repository": repository, "base_sha": base_sha,
+        "commit_message": commit_message, "idempotency_key": idempotency_key,
+        "operations": operations,
+    })
+
+
+@mcp.tool(annotations=RO)
+def brain_operation_status(operation_id: str) -> dict[str, Any]:
+    """Read a previously issued canonical Run Core request handle."""
+    return helper_call("EXECUTION_STATUS", {"request_handle": operation_id})
+
 
 @mcp.tool(annotations=WRITE)
 def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
