@@ -218,7 +218,8 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
 
 @mcp.tool(annotations=WRITE)
 def brain_develop(repository: str, intent: str,
-                  changes: list[dict[str, str]]) -> dict[str, Any]:
+                  changes: list[dict[str, str]] | None = None,
+                  existing_sha: str | None = None) -> dict[str, Any]:
     """One development transaction: Git, HMAC, tests, Run Core, recovery and proof.
 
     This handler is invisible unless the operator has activated the separately
@@ -227,10 +228,14 @@ def brain_develop(repository: str, intent: str,
     """
     if os.environ.get("PB_DEVELOPMENT_MCP_ENABLED") != "1":
         return {"status": "FAIL_CLOSED", "failure_code": "BRAIN_DEVELOPMENT_NOT_ACTIVATED"}
-    return helper_call("PUBLIC_DEVELOPMENT", {
-        "schema_version": "1.0", "repository": repository,
-        "intent": intent, "changes": changes,
-    })
+    if (changes is None) == (existing_sha is None):
+        return {"status": "FAIL_CLOSED", "failure_code": "DEV_SELECT_CHANGES_OR_EXISTING_SHA"}
+    payload = {"schema_version": "1.0", "repository": repository, "intent": intent}
+    if existing_sha is not None:
+        payload["existing_sha"] = existing_sha
+    else:
+        payload["changes"] = changes
+    return helper_call("PUBLIC_DEVELOPMENT", payload)
 
 
 @mcp.tool(annotations=RO)
