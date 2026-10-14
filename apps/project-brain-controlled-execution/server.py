@@ -50,7 +50,10 @@ class PluginFastMCP(FastMCP):
         tools = await super().list_tools()
         # The Brain MCP exposes exactly one ChatGPT-facing execution tool.
         # Legacy handlers remain defined only to respond to stale tool callers.
-        tools = [tool for tool in tools if tool.name in {"brain_execute", "brain_source_mutate", "brain_operation_status"}]
+        allowed = {"brain_execute", "brain_source_mutate", "brain_operation_status"}
+        if os.environ.get("PB_DEVELOPMENT_MCP_ENABLED") == "1":
+            allowed.add("brain_develop")
+        tools = [tool for tool in tools if tool.name in allowed]
         if AUTH_MODE != "oauth_private":
             return tools
         schemes = [{"type": "oauth2", "scopes": OAUTH_SCOPES}]
@@ -210,6 +213,23 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
     return helper_call("RUN_REGISTERED_TASK", {
         "task": {"repository": repository, "commit_sha": commit_sha},
         "wait_seconds": 8,
+    })
+
+
+@mcp.tool(annotations=WRITE)
+def brain_develop(repository: str, intent: str,
+                  changes: list[dict[str, str]]) -> dict[str, Any]:
+    """One development transaction: Git, HMAC, tests, Run Core, recovery and proof.
+
+    This handler is invisible unless the operator has activated the separately
+    verified Brain Development MCP backend in the target runtime. Authorization,
+    adapters, idempotency, routing and acceptance belong to the Brain helper.
+    """
+    if os.environ.get("PB_DEVELOPMENT_MCP_ENABLED") != "1":
+        return {"status": "FAIL_CLOSED", "failure_code": "BRAIN_DEVELOPMENT_NOT_ACTIVATED"}
+    return helper_call("PUBLIC_DEVELOPMENT", {
+        "schema_version": "1.0", "repository": repository,
+        "intent": intent, "changes": changes,
     })
 
 
