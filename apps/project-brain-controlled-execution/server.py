@@ -50,9 +50,7 @@ class PluginFastMCP(FastMCP):
         tools = await super().list_tools()
         # The Brain MCP exposes exactly one ChatGPT-facing execution tool.
         # Legacy handlers remain defined only to respond to stale tool callers.
-        allowed = {"brain_execute", "brain_source_mutate", "brain_operation_status"}
-        if os.environ.get("PB_DEVELOPMENT_MCP_ENABLED") == "1":
-            allowed.add("brain_develop")
+        allowed = {"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop"}
         tools = [tool for tool in tools if tool.name in allowed]
         if AUTH_MODE != "oauth_private":
             return tools
@@ -220,23 +218,39 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
 def brain_develop(repository: str, intent: str,
                   changes: list[dict[str, str]] | None = None,
                   existing_sha: str | None = None) -> dict[str, Any]:
-    """One development transaction: Git, HMAC, tests, Run Core, recovery and proof.
+    """Single ChatGPT entrypoint for a registered exact-SHA release.
 
-    This handler is invisible unless the operator has activated the separately
-    verified Brain Development MCP backend in the target runtime. Authorization,
-    adapters, idempotency, routing and acceptance belong to the Brain helper.
+    Source changes are committed through the official GitHub Direct app.
+    For an existing signed SHA, reuse the active Brain deploy route.
+    Brain owns the target, execution, verification, and durable receipt.
     """
-    if os.environ.get("PB_DEVELOPMENT_MCP_ENABLED") != "1":
-        return {"status": "FAIL_CLOSED", "failure_code": "BRAIN_DEVELOPMENT_NOT_ACTIVATED"}
+    if not isinstance(intent, str) or not intent.strip() or len(intent) > 1000:
+        return {"status": "FAIL_CLOSED", "failure_code": "DEV_INTENT_INVALID"}
     if (changes is None) == (existing_sha is None):
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_SELECT_CHANGES_OR_EXISTING_SHA"}
-    payload = {"schema_version": "1.0", "repository": repository, "intent": intent}
-    if existing_sha is not None:
-        payload["existing_sha"] = existing_sha
-    else:
-        payload["changes"] = changes
-    return helper_call("PUBLIC_DEVELOPMENT", payload)
-
+    if changes is not None:
+        return {
+            "status": "HANDOFF_REQUIRED",
+            "code": "DEV_GITHUB_DIRECT_COMMIT_REQUIRED",
+            "next_tool": "GitHub Direct",
+            "required_next_action": "COMMIT_CHANGES_THEN_RESUBMIT_EXACT_SHA",
+            "repository": repository,
+            "execution_performed": False,
+            "secrets_emitted": False,
+        }
+    if not isinstance(existing_sha, str) or re.fullmatch(r"[0-9a-f]{40}", existing_sha) is None:
+        return {"status": "FAIL_CLOSED", "failure_code": "DEV_SOURCE_SHA_INVALID"}
+    # This is a deploy submission, not a claim of production acceptance.
+    # Poll brain_operation_status and verify real target identity separately.
+    result = helper_call("RUN_REGISTERED_TASK", {
+        "task": {"repository": repository, "commit_sha": existing_sha},
+        "wait_seconds": 8,
+    })
+    if not isinstance(result, dict):
+        raise RuntimeError("DEV_BRAIN_DEPLOY_RESULT_INVALID")
+    result["development_entrypoint"] = "brain_develop"
+    result["requested_source_sha"] = existing_sha
+    return result
 
 @mcp.tool(annotations=RO)
 def execution_status(request_handle: str) -> dict[str, Any]:
