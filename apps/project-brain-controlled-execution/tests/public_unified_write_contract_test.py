@@ -15,8 +15,8 @@ class PublicUnifiedWriteContractTest(unittest.TestCase):
         cls.tree = ast.parse(cls.source, filename=str(SOURCE))
         cls.defs = {n.name: n for n in cls.tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
-    def test_three_public_tools(self):
-        self.assertIn('{"brain_execute", "brain_source_mutate", "brain_operation_status"}', self.source)
+    def test_four_public_tools(self):
+        self.assertIn('{"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop"}', self.source)
 
     def test_existing_deploy_signature_unmodified(self):
         self.assertEqual([a.arg for a in self.defs["brain_execute"].args.args], ["repository", "commit_sha"])
