@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -230,13 +231,39 @@ def brain_develop(repository: str, intent: str,
     if (changes is None) == (existing_sha is None):
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_SELECT_CHANGES_OR_EXISTING_SHA"}
     if changes is not None:
+        # GitHub Direct is the sole authorized source writer. The digest is a
+        # deterministic resumable checkpoint identity, not a commit or proof.
+        if not isinstance(repository, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_REPOSITORY_INVALID"}
+        if not isinstance(changes, list) or not 1 <= len(changes) <= 64:
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGES_INVALID"}
+        seen = set()
+        for change in changes:
+            if not isinstance(change, dict) or set(change) != {"path", "operation", "content"}:
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGE_FIELDS_INVALID"}
+            path, operation, content = (change["path"], change["operation"], change["content"])
+            if operation not in ("create", "replace") or not isinstance(path, str) or not isinstance(content, str):
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGE_INVALID"}
+            if (not path or path.startswith("/") or "\\\\" in path
+                    or len(path) > 240 or path in seen
+                    or any(segment in ("", ".", "..") for segment in path.split("/"))
+                    or len(content.encode("utf-8")) > 1048576):
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGE_BOUNDARY_INVALID"}
+            seen.add(path)
+        canonical = json.dumps({"repository": repository, "intent": intent,
+                                "changes": changes}, sort_keys=True, separators=(",", ":"))
+        request_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
         return {
             "status": "HANDOFF_REQUIRED",
             "code": "DEV_GITHUB_DIRECT_COMMIT_REQUIRED",
+            "request_id": request_id,
             "next_tool": "GitHub Direct",
-            "required_next_action": "COMMIT_CHANGES_THEN_RESUBMIT_EXACT_SHA",
+            "required_next_action": "COMMIT_VALIDATED_CHANGES_THEN_RESUBMIT_SIGNED_SHA",
             "repository": repository,
+            "change_count": len(changes),
             "execution_performed": False,
+            "production_accepted": False,
             "secrets_emitted": False,
         }
     if not isinstance(existing_sha, str) or re.fullmatch(r"[0-9a-f]{40}", existing_sha) is None:
