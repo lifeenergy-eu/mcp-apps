@@ -32,6 +32,20 @@ def email(subject,body):
     spec.loader.exec_module(mod)
     cfg=json.loads(CFG.read_text())
     return mod.email(cfg,subject,body)
+def notify(kind,subject,body):
+    """Prefer WhatsApp if configured, always retain email fallback on API failure."""
+    import importlib.util
+    m=ROOT/"whatsapp-cloud.py"
+    if m.is_file():
+        spec=importlib.util.spec_from_file_location("wazuh_whatsapp_cloud",m)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if mod.status()=="READY":
+            outcome=mod.send(kind,body)
+            if outcome.startswith("ACCEPTED_"):
+                return "WHATSAPP_"+outcome
+            return "WHATSAPP_"+outcome+";EMAIL_"+email(subject,body)
+    return "EMAIL_"+email(subject,body)
 def high_severity():
     secrets=json.loads((ROOT/"secrets/credentials.json").read_text())
     ip=subprocess.check_output(
@@ -74,19 +88,19 @@ def main():
     last=float(state.get("last_failure_email_unix",0))
     import time
     if faulty and (not prior or time.time()-last > 4*3600):
-        status=email("[P620 WAZUH] HEALTH ALERT","Detected at "+now+"\n"+ "\n".join(issues))
+        status=notify("Health alert","[P620 WAZUH] HEALTH ALERT","Detected at "+now+"\n"+ "\n".join(issues))
         events.append("HEALTH:"+status)
-        if status.startswith("ACCEPTED_"):state["last_failure_email_unix"]=time.time()
+        if "ACCEPTED_" in status:state["last_failure_email_unix"]=time.time()
     elif not faulty and prior:
-        status=email("[P620 WAZUH] RECOVERY","Wazuh health checks recovered at "+now)
+        status=notify("Recovery","[P620 WAZUH] RECOVERY","Wazuh health checks recovered at "+now)
         events.append("RECOVERY:"+status)
     state["health_problem"]=faulty
     # Send at most once per 1 hour while severe recent alerts continue.
     last_alert=float(state.get("last_security_email_unix",0))
     if total>0 and time.time()-last_alert >= 3600:
-        status=email("[P620 WAZUH] HIGH SEVERITY ALERTS","Time: "+now+"\nSevere last 15min: "+str(total)+"\nRule IDs: "+", ".join(rules))
+        status=notify("Security alert","[P620 WAZUH] HIGH SEVERITY ALERTS","Time: "+now+"\nSevere last 15min: "+str(total)+"\nRule IDs: "+", ".join(rules))
         events.append("SECURITY:"+status)
-        if status.startswith("ACCEPTED_"):state["last_security_email_unix"]=time.time()
+        if "ACCEPTED_" in status:state["last_security_email_unix"]=time.time()
     state["checked_at_utc"]=now
     state["recent_severe_count"]=total
     state["health_issues"]=issues
