@@ -313,13 +313,29 @@ def brain_develop(repository: str, intent: str,
             if readback != "PASS":
                 return {"status": "FAIL_CLOSED", "failure_code": readback,
                         "request_id": request_id, "production_accepted": False}
+            # Existing HMAC V2 Run Core capability signs the GitHub Direct
+            # source tree; this is NOT a general-purpose source commit writer.
+            result = helper_call("PUBLIC_SOURCE_MUTATION", {
+                "repository": repository,
+                "base_sha": existing_sha,
+                "commit_message": "UDV2 signed verified development request " + request_id[:20],
+                "idempotency_key": "udv2-dev-" + request_id[:40],
+                "operations": [
+                    {"action": "replace", "path": change["path"],
+                     "content": change["content"]} for change in changes
+                ],
+            })
+            if not isinstance(result, dict) or result.get("status") not in ("QUEUED", "PENDING", "PASS"):
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_HMAC_SUBMISSION_FAILED",
+                        "request_id": request_id, "production_accepted": False}
             return {
-                "status": "HANDOFF_REQUIRED",
-                "code": "DEV_GITHUB_DIRECT_READBACK_PASS_HMAC_V2_REQUIRED",
+                "status": result["status"],
+                "code": "DEV_HMAC_V2_RUN_CORE_SUBMITTED",
                 "request_id": request_id,
                 "github_commit_sha": existing_sha,
-                "next_tool": "GitHub Direct",
-                "required_next_action": "HMAC_V2_SIGN_VERIFIED_GITHUB_SOURCE_THEN_REGISTERED_DEPLOY",
+                "hmac_request_handle": result.get("request_handle"),
+                "hmac_receipt_ref": result.get("durable_result_ref"),
+                "next_action": "POLL_HMAC_STATUS_VERIFY_SIGNED_GITHUB_SHA_THEN_BRAIN_EXECUTE",
                 "git_source_verified": True,
                 "execution_performed": False,
                 "production_accepted": False,
