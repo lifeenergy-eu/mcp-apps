@@ -238,9 +238,22 @@ def _verified_github_direct_source(repository: str, commit_sha: str,
         ):
             return "DEV_GITHUB_REMOTE_MISMATCH"
         head = git("ls-remote", "--heads", "origin", "main").split()
-        if not head or head[0] != commit_sha:
-            return "DEV_GITHUB_HEAD_MISMATCH"
+        if not head:
+            return "DEV_GITHUB_HEAD_UNAVAILABLE"
         git("fetch", "--no-tags", "origin", commit_sha)
+        if head[0] != commit_sha:
+            git("fetch", "--no-tags", "origin", head[0])
+            ancestry = subprocess.run(
+                ["git", "-C", str(checkout), "merge-base", "--is-ancestor",
+                 commit_sha, head[0]], env=env, timeout=20,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if ancestry.returncode != 0:
+                return "DEV_GITHUB_HEAD_MISMATCH"
+            message = git("show", "-s", "--format=%B", head[0])
+            if ("PB-Idempotency-Key: udv2-dev-" not in message or
+                    "PB-Attestation-Version: 2" not in message or
+                    "PB-Source-Attestation: hmac-sha256:" not in message):
+                return "DEV_GITHUB_HEAD_MISMATCH"
         for change in changes:
             # Git's blob contents, not supplied client proof, are authoritative.
             content = subprocess.check_output(
