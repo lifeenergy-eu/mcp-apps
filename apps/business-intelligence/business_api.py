@@ -84,3 +84,13 @@ class BusinessApiClient:
         if len(oib) != 11 or not oib.isascii() or not oib.isdigit():
             raise BusinessApiError("OIB_FORMAT_INVALID")
         return self.get("/api/business/v1/companies/" + quote(oib, safe=""))
+
+    def company_source_provenance_by_oib(self, oib: str):
+        """Return only the verified data-source trail; enforce the same rights gate."""
+        envelope = self.company_by_oib(oib)
+        return {
+            "oib": oib,
+            "as_of": envelope["meta"]["as_of"],
+            "provenance": envelope["meta"]["provenance"],
+            "redistribution_allowed": True,
+        }
