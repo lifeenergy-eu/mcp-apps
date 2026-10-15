@@ -1,9 +1,9 @@
 {
   "schema_version": "1.4",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
-  "name": "Private Infrastructure Access",
-  "version": "0.6.0",
-  "status": "SHARED_AUTH_AND_READ_POLICY_SOURCE_READY_P620_COMPATIBILITY",
+  "name": "P620 Ubuntu Server MCP",
+  "version": "0.7.0",
+  "status": "SOURCE_READY_HOST_DEPLOY_PENDING",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication_modes": [
@@ -27,7 +27,8 @@
     "login": "SINGLE_OPERATOR_PASSWORD_RUNTIME_SECRET",
     "protected_resource_metadata": "SDK_GENERATED_RFC9728",
     "scopes": [
-      "infra.read"
+      "infra.read",
+      "control.execute"
     ],
     "secrets_in_repository": false,
     "predefined_private_client": true,
@@ -40,9 +41,9 @@
   "host_adapter_required": true,
   "host_read_contract": "FIXED_EXTERNAL_HELPER_JSON_STDIN_STDOUT",
   "helper_execution": "SUDO_NONINTERACTIVE_FIXED_HELPER_P620_ADAPTER_ONLY",
-  "read_only": true,
-  "arbitrary_shell": false,
-  "mutation_tools": false,
+  "read_only": false,
+  "arbitrary_shell": true,
+  "mutation_tools": true,
   "deploy_tools": false,
   "tools": [
     "connector_health",
@@ -58,9 +59,23 @@
     "file_find",
     "hash_file",
     "git_read",
-    "sqlite_read_only"
+    "sqlite_read_only",
+    "run_command",
+    "write_file",
+    "create_directory",
+    "change_permissions",
+    "remove_path"
   ],
   "secret_values_in_repository": false,
   "product_data_path": "CHATGPT_WEB_DIRECT_HTTPS_TO_HOST",
-  "cloudways_in_product_data_path": false
+  "cloudways_in_product_data_path": false,
+  "server_admin": {
+    "helper_path": "/opt/p620-server-mcp/root_helper.py",
+    "executor_path": "/opt/p620-server-mcp/admin_executor.py",
+    "root_authorization": "PINNED_SUDO_HELPER_ONLY",
+    "existing_chatgpt_plugin": "P620_Read_MCP",
+    "existing_listener": "127.0.0.1:8792",
+    "deployment": "IN_PLACE_SERVICE_OVERRIDE_PRESERVE_OAUTH_AND_INGRESS",
+    "notes": "Existing Brain execution MCP and deploy pipeline unchanged. ChatGPT OAuth must reauthorize the expanded scope without reinstalling plugin."
+  }
 }
