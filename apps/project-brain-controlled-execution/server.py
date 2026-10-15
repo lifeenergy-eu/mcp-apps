@@ -216,6 +216,45 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
     })
 
 
+def _verified_github_direct_source(repository: str, commit_sha: str,
+                                   changes: list[dict[str, str]]) -> str:
+    """Read only an allowlisted GitHub checkout; never commit or deploy."""
+    if repository != "lifeenergy-eu/mcp-apps":
+        return "DEV_READBACK_REPOSITORY_NOT_REGISTERED"
+    checkout = Path("/home/master/.project-brain/releases/mcp-apps-latest")
+    if not (checkout / ".git").is_dir():
+        return "DEV_GITHUB_CHECKOUT_UNAVAILABLE"
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    def git(*argv: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(checkout), *argv],
+            stderr=subprocess.DEVNULL, timeout=20, env=env,
+        ).decode("utf-8")
+    try:
+        remote = git("remote", "get-url", "origin").strip()
+        if remote not in (
+            "https://github.com/lifeenergy-eu/mcp-apps.git",
+            "git@github.com:lifeenergy-eu/mcp-apps.git",
+        ):
+            return "DEV_GITHUB_REMOTE_MISMATCH"
+        head = git("ls-remote", "--heads", "origin", "main").split()
+        if not head or head[0] != commit_sha:
+            return "DEV_GITHUB_HEAD_MISMATCH"
+        git("fetch", "--no-tags", "origin", commit_sha)
+        for change in changes:
+            # Git's blob contents, not supplied client proof, are authoritative.
+            content = subprocess.check_output(
+                ["git", "-C", str(checkout), "show",
+                 commit_sha + ":" + change["path"]],
+                stderr=subprocess.DEVNULL, timeout=20, env=env,
+            )
+            if content != change["content"].encode("utf-8"):
+                return "DEV_GITHUB_TREE_CONTENT_MISMATCH"
+        return "PASS"
+    except (OSError, subprocess.SubprocessError, UnicodeError):
+        return "DEV_GITHUB_READBACK_UNAVAILABLE"
+
+
 @mcp.tool(annotations=WRITE)
 def brain_develop(repository: str, intent: str,
                   changes: list[dict[str, str]] | None = None,
@@ -270,13 +309,18 @@ def brain_develop(repository: str, intent: str,
         if checkpoint is not None:
             if checkpoint.get("request_id") != request_id:
                 return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_REQUEST_MISMATCH"}
+            readback = _verified_github_direct_source(repository, existing_sha, changes)
+            if readback != "PASS":
+                return {"status": "FAIL_CLOSED", "failure_code": readback,
+                        "request_id": request_id, "production_accepted": False}
             return {
                 "status": "HANDOFF_REQUIRED",
-                "code": "DEV_GITHUB_DIRECT_READBACK_REQUIRED",
+                "code": "DEV_GITHUB_DIRECT_READBACK_PASS_HMAC_V2_REQUIRED",
                 "request_id": request_id,
                 "github_commit_sha": existing_sha,
                 "next_tool": "GitHub Direct",
-                "required_next_action": "VERIFY_COMMIT_AND_TREE_THEN_HMAC_V2_SIGN_AND_DEPLOY",
+                "required_next_action": "HMAC_V2_SIGN_VERIFIED_GITHUB_SOURCE_THEN_REGISTERED_DEPLOY",
+                "git_source_verified": True,
                 "execution_performed": False,
                 "production_accepted": False,
             }
