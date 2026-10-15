@@ -33,18 +33,18 @@ def email(subject,body):
     cfg=json.loads(CFG.read_text())
     return mod.email(cfg,subject,body)
 def notify(kind,subject,body):
-    """Prefer WhatsApp if configured, always retain email fallback on API failure."""
+    """Telegram first when configured, email fallback on send failure."""
     import importlib.util
-    m=ROOT/"whatsapp-cloud.py"
+    m=ROOT/"telegram-alert.py"
     if m.is_file():
-        spec=importlib.util.spec_from_file_location("wazuh_whatsapp_cloud",m)
+        spec=importlib.util.spec_from_file_location("wazuh_telegram_alert",m)
         mod=importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         if mod.status()=="READY":
             outcome=mod.send(kind,body)
             if outcome.startswith("ACCEPTED_"):
-                return "WHATSAPP_"+outcome
-            return "WHATSAPP_"+outcome+";EMAIL_"+email(subject,body)
+                return "TELEGRAM_"+outcome
+            return "TELEGRAM_"+outcome+";EMAIL_"+email(subject,body)
     return "EMAIL_"+email(subject,body)
 def high_severity():
     secrets=json.loads((ROOT/"secrets/credentials.json").read_text())
@@ -68,7 +68,17 @@ def high_severity():
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--test-email",action="store_true")
+    ap.add_argument("--test-telegram",action="store_true")
     args=ap.parse_args()
+    if args.test_telegram:
+        import importlib.util
+        t=ROOT/"telegram-alert.py"
+        spec=importlib.util.spec_from_file_location("wazuh_telegram_alert",t)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        result=mod.send("TEST","P620 Wazuh Telegram notification test.")
+        print("TELEGRAM_TEST_RESULT",result)
+        return 0 if result.startswith("ACCEPTED_") else 2
     if args.test_email:
         r=email("[P620 WAZUH] TEST","P620 Wazuh alert delivery test. If you received this, inbox delivery is verified by you.")
         print("EMAIL_TEST_RESULT",r)
