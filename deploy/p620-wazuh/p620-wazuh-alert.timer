@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Wazuh health and severe security alerts every 10 minutes
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=p620-wazuh-alert.service
+[Install]
+WantedBy=timers.target
