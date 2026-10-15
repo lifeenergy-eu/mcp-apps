@@ -61,6 +61,21 @@ $headers[] = 'X-Forwarded-Prefix: ' . PB_SERVER_MCP_PREFIX;
 $query = (string)($_SERVER['QUERY_STRING'] ?? '');
 $url = PB_SERVER_MCP_BACKEND . $backendPath . ($query !== '' ? '?' . $query : '');
 
+// Public resource metadata is bound to the public MCP resource identity.
+// Avoid a backend-local well-known path derived from a now-public resource URL.
+if ($method === 'GET' && $path === '/.well-known/oauth-protected-resource' . PB_SERVER_MCP_PREFIX . '/mcp') {
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    header('X-PB-Server-MCP-Ingress: cloudways-loopback-v1');
+    echo json_encode([
+        'resource' => 'https://ai-runtime.larimarcode.com/pb-server-mcp/mcp',
+        'authorization_servers' => ['https://ai-runtime.larimarcode.com/pb-server-mcp/'],
+        'scopes_supported' => ['control.execute'],
+        'bearer_methods_supported' => ['header']
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 // Rewrite only OAuth discovery documents from the private loopback origin to
 // the externally reachable, separately scoped HTTPS MCP origin.
 if ($method === 'GET' && in_array($backendPath, [
