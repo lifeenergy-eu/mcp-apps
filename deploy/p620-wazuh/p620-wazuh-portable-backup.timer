@@ -1,0 +1,8 @@
+[Unit]
+Description=Weekly portable Wazuh backup, Sunday 05:30 local time
+[Timer]
+OnCalendar=Sun *-*-* 05:30:00
+Persistent=false
+Unit=p620-wazuh-portable-backup.service
+[Install]
+WantedBy=timers.target
