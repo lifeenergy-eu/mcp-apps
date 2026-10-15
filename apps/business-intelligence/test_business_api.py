@@ -13,6 +13,17 @@ class ApiAdapterTests(unittest.TestCase):
     def test_https_and_token_required(self):
         with self.assertRaises(BusinessApiError):
             BusinessApiClient("http://example.org", "token")
+    def test_url_query_fragment_and_userinfo_are_rejected(self):
+        for url in (
+            "https://user:secret@example.org",
+            "https://example.org?token=unsafe",
+            "https://example.org#fragment",
+            "https:///missing-host",
+        ):
+            with self.subTest(url=url):
+                with self.assertRaises(BusinessApiError):
+                    BusinessApiClient(url, "test-token")
+
     def test_oib_validation_blocks_external_call(self):
         client = BusinessApiClient("https://example.org", "token")
         with patch("business_api._safe_urlopen") as call:
