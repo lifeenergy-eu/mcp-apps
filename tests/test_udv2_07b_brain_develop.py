@@ -50,6 +50,24 @@ class DevelopBoundary(unittest.TestCase):
         self.assertEqual(self.request(operation="delete")["failure_code"],
                          "DEV_CHANGE_INVALID")
 
+    def test_resume_requires_exact_request_identity(self):
+        changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
+        req = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression", changes=changes)
+        sha = "a" * 40
+        resume = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
+                           changes=changes, existing_sha=sha,
+                           checkpoint={"request_id": req["request_id"], "github_commit_sha": sha})
+        self.assertEqual(resume["code"], "DEV_GITHUB_DIRECT_READBACK_REQUIRED")
+        self.assertFalse(resume["production_accepted"])
+        invalid = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
+                            changes=changes, existing_sha=sha,
+                            checkpoint={"request_id": "bad", "github_commit_sha": sha})
+        self.assertEqual(invalid["failure_code"], "DEV_RESUME_REQUEST_MISMATCH")
+        wrong_sha = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
+                              changes=changes, existing_sha=sha,
+                              checkpoint={"request_id": req["request_id"], "github_commit_sha": "b" * 40})
+        self.assertEqual(wrong_sha["failure_code"], "DEV_RESUME_SHA_MISMATCH")
+
     def test_unsigned_sha_format_rejected(self):
         result = self.call(repository="lifeenergy-eu/mcp-apps",
                            intent="bad sha", existing_sha="bad")
