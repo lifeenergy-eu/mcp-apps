@@ -249,11 +249,9 @@ def _verified_github_direct_source(repository: str, commit_sha: str,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if ancestry.returncode != 0:
                 return "DEV_GITHUB_HEAD_MISMATCH"
-            message = git("show", "-s", "--format=%B", head[0])
-            if (("PB-Idempotency-Key: udv2-dev-" + request_id[:40]) not in message or
-                    "PB-Attestation-Version: 2" not in message or
-                    "PB-Source-Attestation: hmac-sha256:" not in message):
-                return "DEV_GITHUB_HEAD_MISMATCH"
+            # Exact historical source may have later authorized releases.
+            # The matching signed commit is verified by _dev_signed_head
+            # before any deploy; a caller-supplied source alone is insufficient.
         for change in changes:
             # Git's blob contents, not supplied client proof, are authoritative.
             content = subprocess.check_output(
@@ -269,33 +267,38 @@ def _verified_github_direct_source(repository: str, commit_sha: str,
 
 
 def _dev_signed_head(repository: str, base_sha: str, request_id: str) -> str | None:
+    """Find this request's signed GitHub descendant without trusting current HEAD."""
     if repository != "lifeenergy-eu/mcp-apps":
         return None
     checkout = Path("/home/master/.project-brain/releases/mcp-apps-latest")
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    def git(*args: str) -> str:
+        return subprocess.check_output(
+            ["git", "-C", str(checkout), *args], stderr=subprocess.DEVNULL,
+            timeout=20, env=env).decode("utf-8")
     try:
-        remote_head = subprocess.check_output(
-            ["git", "-C", str(checkout), "ls-remote", "--heads", "origin", "main"],
-            stderr=subprocess.DEVNULL, timeout=20, env=env).decode().split()[0]
-        if re.fullmatch(r"[0-9a-f]{40}", remote_head) is None:
+        data = git("ls-remote", "--heads", "origin", "main").split()
+        if not data or re.fullmatch(r"[0-9a-f]{40}", data[0]) is None:
             return None
-        subprocess.check_call(
-            ["git", "-C", str(checkout), "fetch", "--no-tags", "origin", remote_head],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, env=env)
-        ancestry = subprocess.run(
-            ["git", "-C", str(checkout), "merge-base", "--is-ancestor", base_sha, remote_head],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, env=env)
-        if ancestry.returncode != 0:
+        head = data[0]
+        git("fetch", "--no-tags", "origin", head)
+        git("fetch", "--no-tags", "origin", base_sha)
+        if subprocess.run(
+                ["git", "-C", str(checkout), "merge-base", "--is-ancestor", base_sha, head],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=20, env=env).returncode != 0:
             return None
-        message = subprocess.check_output(
-            ["git", "-C", str(checkout), "show", "-s", "--format=%B", remote_head],
-            stderr=subprocess.DEVNULL, timeout=20, env=env).decode()
-        if all(marker in message for marker in (
-                "PB-Idempotency-Key: udv2-dev-" + request_id[:40],
-                "PB-Attestation-Version: 2",
-                "PB-Source-Attestation: hmac-sha256:")):
-            return remote_head
-    except (OSError, subprocess.SubprocessError, UnicodeError, IndexError):
+        tree = git("rev-parse", base_sha + "^{tree}").strip()
+        commits = git("rev-list", "--ancestry-path", "--max-count=200",
+                      base_sha + ".." + head).splitlines()
+        marker = "PB-Idempotency-Key: udv2-dev-" + request_id[:40]
+        for candidate in commits:
+            message = git("show", "-s", "--format=%B", candidate)
+            if (marker in message and "PB-Attestation-Version: 2" in message
+                    and "PB-Source-Attestation: hmac-sha256:" in message
+                    and git("rev-parse", candidate + "^{tree}").strip() == tree):
+                return candidate
+    except (OSError, subprocess.SubprocessError, UnicodeError, ValueError):
         pass
     return None
 
