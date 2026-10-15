@@ -51,6 +51,12 @@ class DevelopBoundary(unittest.TestCase):
                 self.assertEqual(self.request(path)["failure_code"],
                                  "DEV_CHANGE_BOUNDARY_INVALID")
 
+    def test_repository_must_be_registered_before_source_handoff(self):
+        result = self.call(repository="other/repo", intent="bounded regression",
+                           changes=[{"path": "tests/fixture.txt", "operation": "create",
+                                     "content": "safe"}])
+        self.assertEqual(result["failure_code"], "DEV_REPOSITORY_NOT_REGISTERED")
+
     def test_wrong_operation(self):
         self.assertEqual(self.request(operation="delete")["failure_code"],
                          "DEV_CHANGE_INVALID")
