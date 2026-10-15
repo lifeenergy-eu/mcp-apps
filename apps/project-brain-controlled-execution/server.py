@@ -245,7 +245,7 @@ def brain_develop(repository: str, intent: str,
             path, operation, content = (change["path"], change["operation"], change["content"])
             if operation not in ("create", "replace") or not isinstance(path, str) or not isinstance(content, str):
                 return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGE_INVALID"}
-            if (not path or path.startswith("/") or "\\\\" in path
+            if (not path or path.startswith("/") or chr(92) in path
                     or len(path) > 240 or path in seen
                     or any(segment in ("", ".", "..") for segment in path.split("/"))
                     or len(content.encode("utf-8")) > 1048576):
