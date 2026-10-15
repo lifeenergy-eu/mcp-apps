@@ -53,7 +53,8 @@ $headers = [];
 foreach (['authorization','accept','accept-language','content-type','origin','referer','user-agent','mcp-protocol-version','mcp-session-id','last-event-id'] as $name) {
     if (isset($normalized[$name]) && $normalized[$name] !== '') $headers[] = $name . ': ' . $normalized[$name];
 }
-$headers[] = 'Host: ai-runtime.larimarcode.com';
+// The upstream connection is loopback. Keep the public host only in forwarded headers.
+$headers[] = 'Host: 127.0.0.1:18794';
 $headers[] = 'X-Forwarded-Proto: https';
 $headers[] = 'X-Forwarded-Host: ai-runtime.larimarcode.com';
 $headers[] = 'X-Forwarded-Prefix: ' . PB_SERVER_MCP_PREFIX;
