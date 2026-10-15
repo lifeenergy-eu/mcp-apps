@@ -19,8 +19,9 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 from infrastructure_read_policy import FixedHelperClient, install_read_only_tools
+from mcp.server.auth.middleware.auth_context import get_access_token
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 DEFAULT_HELPER = "/usr/local/libexec/p620-debug-read"
 DEFAULT_TOKEN_FILE = "/srv/project-brain/secrets/p620-mcp.token"
 
@@ -51,7 +52,7 @@ def load_token() -> str:
 
 
 BOOTSTRAP_TOKEN = load_token() if AUTH_MODE == "bootstrap_bearer" else None
-SECURITY_SCHEMES = [{"type": "oauth2", "scopes": ["control.execute"]}] if AUTH_MODE == "oauth_private" else []
+SECURITY_SCHEMES = [{"type": "oauth2", "scopes": ["infra.read"]}] if AUTH_MODE == "oauth_private" else []
 
 
 class PluginFastMCP(FastMCP):
@@ -132,6 +133,9 @@ ADMIN_HELPER = "/opt/p620-server-mcp/root_helper.py"
 WRITE = {"readOnlyHint": False, "destructiveHint": True, "openWorldHint": False}
 
 def _admin_invoke(operation: str, **kwargs: Any) -> dict[str, Any]:
+    token = get_access_token()
+    if token is None or "control.execute" not in token.scopes:
+        return {"status": "DENIED", "code": "CONTROL_EXECUTE_SCOPE_REQUIRED"}
     req = {"operation": operation, "request_id": "P620-" + secrets.token_hex(20), **kwargs}
     try:
         proc = subprocess.run(
