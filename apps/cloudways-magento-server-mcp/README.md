@@ -19,3 +19,6 @@ Standalone direct Server MCP, based on the active P620 and Netcup WordPress 19-t
 
 ## Acceptance
 Syntax compile; OAuth unauthorized 401; valid auth scope `control.execute`; connector_health correct identity; read diagnostics; sandboxed file create/read/hash/mode/remove; failed privilege escalation; safe timeout; no modification of two existing systemd units; exact running source SHA.
+
+## Release control
+Standalone Cloudways Magento Direct MCP activation requires independent HMAC V2 source attestation, explicitly registered Run Core authority, preserved 8792/8793 services, and exact-SHA production verification. SSH access alone does not confer release authorization.
