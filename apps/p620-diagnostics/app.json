@@ -2,8 +2,8 @@
   "schema_version": "1.4",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "P620 Ubuntu Server MCP",
-  "version": "0.7.1",
-  "status": "SOURCE_READY_WSL_DEPLOY_PENDING",
+  "version": "0.7.2",
+  "status": "SOURCE_FIXED_WSL_DEPLOY_PENDING",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication_modes": [
@@ -27,13 +27,17 @@
     "login": "SINGLE_OPERATOR_PASSWORD_RUNTIME_SECRET",
     "protected_resource_metadata": "SDK_GENERATED_RFC9728",
     "scopes": [
+      "infra.read",
       "control.execute"
     ],
     "secrets_in_repository": false,
     "predefined_private_client": true,
     "predefined_client_auth_method": "client_secret_post",
     "predefined_client_redirect_source": "HOST_RUNTIME_ENV",
-    "predefined_client_credentials": "HOST_RUNTIME_SECRET_FILES_ONLY"
+    "predefined_client_credentials": "HOST_RUNTIME_SECRET_FILES_ONLY",
+    "required_transport_scopes": [
+      "infra.read"
+    ]
   },
   "shared_auth_package": "packages/mcp_auth",
   "shared_read_policy_package": "packages/infrastructure_read_policy",
@@ -75,6 +79,7 @@
     "existing_chatgpt_plugin": "P620_Read_MCP",
     "existing_listener": "127.0.0.1:8792",
     "deployment": "IN_PLACE_SERVICE_OVERRIDE_PRESERVE_OAUTH_AND_INGRESS",
-    "notes": "Entire existing P620 MCP uses single control.execute scope for administrative and read tools; reconnect/re-authorize existing ChatGPT plugin once. No new plugin."
+    "notes": "Existing ChatGPT infra.read connection remains compatible. WRITE requires token with both infra.read and control.execute; no auto escalation. Existing plugin URL unchanged.",
+    "authorization": "WRITE_TOOLS_CHECK_VALIDATED_TOKEN_SCOPE_CONTROL_EXECUTE"
   }
 }
