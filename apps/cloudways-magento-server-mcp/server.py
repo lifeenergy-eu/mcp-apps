@@ -25,7 +25,7 @@ assert PORT == 18794, 'INVALID_PORT'
 assert PUBLIC_HOST and '/' not in PUBLIC_HOST and ':' not in PUBLIC_HOST, 'INVALID_HOST'
 assert AUTH_MODE == 'oauth_private', 'PRIVATE_OAUTH_REQUIRED'
 assert OAUTH_SCOPES == ['control.execute'], 'OAUTH_SCOPE_MISMATCH'
-HELPER=str(HERE.parent / 'user_helper.py')
+HELPER=str(HERE / 'user_helper.py')
 MCP=FastMCP('Cloudways Magento Server MCP',
     instructions='Direct Cloudways Magento user-scoped administration: diagnostics, read and write commands without sudo. Not a Brain deploy or execution gateway. Never output secrets.',
     host=HOST, port=PORT, streamable_http_path='/mcp',stateless_http=True,json_response=True,
