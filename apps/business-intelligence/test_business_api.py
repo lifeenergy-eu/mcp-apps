@@ -3,6 +3,13 @@ from unittest.mock import patch
 from business_api import BusinessApiClient, BusinessApiError
 
 class ApiAdapterTests(unittest.TestCase):
+    def test_redirect_handler_rejects_redirect(self):
+        from business_api import _NoRedirect
+        from urllib.request import Request
+        self.assertIsNone(_NoRedirect().redirect_request(
+            Request("https://example.org"), None, 302, "Found", {},
+            "https://untrusted.example"))
+
     def test_https_and_token_required(self):
         with self.assertRaises(BusinessApiError):
             BusinessApiClient("http://example.org", "token")
