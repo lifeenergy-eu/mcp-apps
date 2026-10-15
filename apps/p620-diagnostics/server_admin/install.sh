@@ -6,6 +6,7 @@ test -f "$ROOT/apps/p620-diagnostics/server.py"
 test -f "$ROOT/apps/p620-diagnostics/auth.py"
 test -f "$ROOT/apps/p620-diagnostics/server_admin/admin_executor.py"
 test -f "$ROOT/apps/p620-diagnostics/server_admin/root_helper.py"
+test -f "$ROOT/packages/mcp_auth/private_oauth.py"
 SERVICE=project-brain-p620-mcp.service
 CURRENT_DIR="$(systemctl show "$SERVICE" -p WorkingDirectory --value)"
 test -d "$CURRENT_DIR"
@@ -44,8 +45,8 @@ cat > "$DROP" <<'UNIT'
 WorkingDirectory=/opt/p620-server-mcp/app
 ExecStart=
 ExecStart=/srv/project-brain/mcp-apps/venv/bin/python /opt/p620-server-mcp/app/server.py
-Environment=MCP_OAUTH_SCOPES=infra.read,control.execute
-Environment=MCP_OAUTH_REQUIRED_SCOPES=infra.read
+Environment=MCP_OAUTH_SCOPES=control.execute
+Environment=P620_MCP_AUTH_PACKAGES=/opt/p620-server-mcp/packages
 Restart=always
 RestartSec=3
 UNIT
@@ -59,5 +60,5 @@ if ! systemctl is-active --quiet "$SERVICE"; then
 fi
 echo "P620_SERVER_MCP_SYSTEMD_ACTIVE (OAuth packages refreshed; live acceptance pending)"
 systemctl show "$SERVICE" -p ActiveState -p UnitFileState -p WorkingDirectory
-echo "Previous OAuth endpoint retained. Existing ChatGPT infra.read remains valid; WRITE requires separately granted control.execute."
-echo "Existing Brain execution MCP NOT MODIFIED."
+echo "Existing MCP endpoint retained. OAuth requires control.execute, same as Netcup. ChatGPT connection must request that scope."
+echo "Separate historical P620 WRITE service NOT MODIFIED."
