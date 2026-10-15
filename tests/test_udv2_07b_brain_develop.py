@@ -25,7 +25,7 @@ def load_handler():
 class DevelopBoundary(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.call = staticmethod(load_handler)
+        cls.call = staticmethod(load_handler())
 
     def request(self, path="tests/fixture.txt", operation="create"):
         return self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
