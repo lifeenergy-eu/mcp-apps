@@ -20,6 +20,10 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def _safe_urlopen(request, timeout):
+    return build_opener(_NoRedirect()).open(request, timeout=timeout)
+
+
 class BusinessApiError(RuntimeError):
     pass
 
@@ -42,7 +46,7 @@ class BusinessApiClient:
             method="GET",
         )
         try:
-            with build_opener(_NoRedirect()).open(request, timeout=12) as response:
+            with _safe_urlopen(request, timeout=12) as response:
                 payload = response.read(MAX_RESPONSE_BYTES + 1)
                 if len(payload) > MAX_RESPONSE_BYTES:
                     raise BusinessApiError("API_RESPONSE_TOO_LARGE")
