@@ -49,6 +49,15 @@ def company_profile_by_oib(oib: str) -> dict:
     return BusinessApiClient.from_environment().company_by_oib(oib)
 
 
+@mcp.tool()
+def company_source_provenance_by_oib(oib: str) -> dict:
+    """Return verified source identifiers and retrieval timestamps for a Croatian company.
+
+    Uses the same authorized Business API request and never accesses Fabric or CRM directly.
+    """
+    return BusinessApiClient.from_environment().company_source_provenance_by_oib(oib)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(mcp.streamable_http_app(), host=host, port=port, log_level="info")
