@@ -92,6 +92,31 @@ class DevelopBoundary(unittest.TestCase):
         self.assertTrue(final["production_accepted"])
         self.assertEqual(final["production_sha"], final["signed_sha"])
 
+    def test_orphan_deploy_handle_rejected(self):
+        changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
+        original = self.call(repository="lifeenergy-eu/mcp-apps",
+                             intent="bounded regression", changes=changes)
+        result = self.call(repository="lifeenergy-eu/mcp-apps",
+                           intent="bounded regression", changes=changes,
+                           existing_sha="d" * 40,
+                           checkpoint={"request_id": original["request_id"],
+                                       "github_commit_sha": "d" * 40,
+                                       "deploy_request_handle": "b" * 64})
+        self.assertEqual(result["failure_code"], "DEV_DEPLOY_WITHOUT_HMAC_PROOF")
+        self.assertFalse(result["production_accepted"])
+
+    def test_invalid_hmac_handle_rejected(self):
+        changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
+        original = self.call(repository="lifeenergy-eu/mcp-apps",
+                             intent="bounded regression", changes=changes)
+        result = self.call(repository="lifeenergy-eu/mcp-apps",
+                           intent="bounded regression", changes=changes,
+                           existing_sha="d" * 40,
+                           checkpoint={"request_id": original["request_id"],
+                                       "github_commit_sha": "d" * 40,
+                                       "hmac_request_handle": "invalid"})
+        self.assertEqual(result["failure_code"], "DEV_HMAC_HANDLE_INVALID")
+
     def test_unsigned_sha_format_rejected(self):
         result = self.call(repository="lifeenergy-eu/mcp-apps",
                            intent="bad sha", existing_sha="bad")
