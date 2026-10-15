@@ -1,0 +1,11 @@
+[Unit]
+Description=P620 Wazuh operational health and severity alert check
+After=docker.service
+Wants=docker.service
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /opt/p620-wazuh/alert-monitor.py
+WorkingDirectory=/opt/p620-wazuh
+TimeoutStartSec=75
+NoNewPrivileges=true
