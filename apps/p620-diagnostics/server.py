@@ -20,7 +20,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 from infrastructure_read_policy import FixedHelperClient, install_read_only_tools
 
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 DEFAULT_HELPER = "/usr/local/libexec/p620-debug-read"
 DEFAULT_TOKEN_FILE = "/srv/project-brain/secrets/p620-mcp.token"
 
@@ -51,7 +51,7 @@ def load_token() -> str:
 
 
 BOOTSTRAP_TOKEN = load_token() if AUTH_MODE == "bootstrap_bearer" else None
-SECURITY_SCHEMES = [{"type": "oauth2", "scopes": OAUTH_SCOPES}] if AUTH_MODE == "oauth_private" else []
+SECURITY_SCHEMES = [{"type": "oauth2", "scopes": ["control.execute"]}] if AUTH_MODE == "oauth_private" else []
 
 
 class PluginFastMCP(FastMCP):
