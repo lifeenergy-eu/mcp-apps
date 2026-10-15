@@ -9,8 +9,8 @@ import json
 import os
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, build_opener
-from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.parse import quote, urlsplit
+from urllib.request import Request
 
 MAX_RESPONSE_BYTES = 524288
 
@@ -30,7 +30,9 @@ class BusinessApiError(RuntimeError):
 
 class BusinessApiClient:
     def __init__(self, base_url: str, token: str):
-        if not base_url.startswith("https://") or not token or "@" in base_url.split("/")[2]:
+        parts = urlsplit(base_url)
+        if (parts.scheme != "https" or not parts.hostname or parts.username is not None
+                or parts.password is not None or parts.query or parts.fragment or not token):
             raise BusinessApiError("HTTPS_BASE_URL_AND_SERVICE_TOKEN_REQUIRED")
         self.base_url = base_url.rstrip("/")
         self.token = token
