@@ -27,7 +27,7 @@ def canonical_path(raw: str) -> Path:
         raise AdminError('ABSOLUTE_PATH_REQUIRED')
     p = Path(raw)
     # Resolve all existing symlinks to prevent disguising an alternate target.
-    # Root '/' is the intentional scope; no narrow allowlist is assumed.
+    # Cloudways account rights remain the effective OS boundary.
     return p.resolve(strict=False)
 
 
@@ -127,8 +127,10 @@ def main() -> int:
         request = json.loads(raw)
         if not isinstance(request, dict):
             raise AdminError('OBJECT_REQUIRED')
+        if not isinstance(request.get('request_id'),str) or len(request['request_id']) < 20:
+            raise AdminError('REQUEST_ID_INVALID')
         output = execute(request)
-    except (AdminError, KeyError, ValueError, OSError) as exc:
+    except (AdminError, KeyError, ValueError, OSError, TypeError) as exc:
         output = {'status':'FAIL_CLOSED','code':str(exc) if isinstance(exc,AdminError) else 'REQUEST_OR_OS_FAILURE'}
     print(json.dumps(output,sort_keys=True))
     return 0 if output.get('status') == 'PASS' else 2
