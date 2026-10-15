@@ -18,3 +18,7 @@ The central Laravel API endpoint `GET /api/business/v1/companies/{oib}` is a *pe
 Next: implement Laravel contract and authenticated read adapter, then guarded local MCP protocol tests, and only then exact SHA governed release plus ChatGPT Plus / Claude real-client acceptance. Free user support must be tested on the actual plan and distribution surface.
 
 <!-- Source-only API/MCP development tracking: 2026-10-12. -->
+
+## Upstream URL acceptance
+
+The private adapter requires a parsed HTTPS hostname and rejects URL user information, query strings and fragments. It refuses redirects. These source-side checks do not grant external client access.
