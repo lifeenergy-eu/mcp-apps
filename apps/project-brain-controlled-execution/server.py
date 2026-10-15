@@ -219,7 +219,8 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
 @mcp.tool(annotations=WRITE)
 def brain_develop(repository: str, intent: str,
                   changes: list[dict[str, str]] | None = None,
-                  existing_sha: str | None = None) -> dict[str, Any]:
+                  existing_sha: str | None = None,
+                  checkpoint: dict[str, str] | None = None) -> dict[str, Any]:
     """Single ChatGPT entrypoint for a registered exact-SHA release.
 
     Source changes are committed through the official GitHub Direct app.
@@ -230,7 +231,16 @@ def brain_develop(repository: str, intent: str,
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_INTENT_INVALID"}
     if changes is None and existing_sha is None:
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_SELECT_CHANGES_OR_EXISTING_SHA"}
-    if changes is not None and existing_sha is not None:
+    if checkpoint is not None:
+        if changes is None or existing_sha is None:
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_INPUTS_REQUIRED"}
+        if not isinstance(checkpoint, dict) or set(checkpoint) != {"request_id", "github_commit_sha"}:
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_PROOF_INVALID"}
+        if (checkpoint["github_commit_sha"] != existing_sha or
+                not isinstance(existing_sha, str) or
+                re.fullmatch(r"[0-9a-f]{40}", existing_sha) is None):
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_SHA_MISMATCH"}
+    elif changes is not None and existing_sha is not None:
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHECKPOINT_RESUME_PROOF_REQUIRED"}
 
     if changes is not None:
@@ -257,6 +267,19 @@ def brain_develop(repository: str, intent: str,
         canonical = json.dumps({"repository": repository, "intent": intent,
                                 "changes": changes}, sort_keys=True, separators=(",", ":"))
         request_id = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if checkpoint is not None:
+            if checkpoint.get("request_id") != request_id:
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_REQUEST_MISMATCH"}
+            return {
+                "status": "HANDOFF_REQUIRED",
+                "code": "DEV_GITHUB_DIRECT_READBACK_REQUIRED",
+                "request_id": request_id,
+                "github_commit_sha": existing_sha,
+                "next_tool": "GitHub Direct",
+                "required_next_action": "VERIFY_COMMIT_AND_TREE_THEN_HMAC_V2_SIGN_AND_DEPLOY",
+                "execution_performed": False,
+                "production_accepted": False,
+            }
         return {
             "status": "HANDOFF_REQUIRED",
             "code": "DEV_GITHUB_DIRECT_COMMIT_REQUIRED",
