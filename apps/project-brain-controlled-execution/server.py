@@ -228,8 +228,11 @@ def brain_develop(repository: str, intent: str,
     """
     if not isinstance(intent, str) or not intent.strip() or len(intent) > 1000:
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_INTENT_INVALID"}
-    if (changes is None) == (existing_sha is None):
+    if changes is None and existing_sha is None:
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_SELECT_CHANGES_OR_EXISTING_SHA"}
+    if changes is not None and existing_sha is not None:
+        return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHECKPOINT_RESUME_PROOF_REQUIRED"}
+
     if changes is not None:
         # GitHub Direct is the sole authorized source writer. The digest is a
         # deterministic resumable checkpoint identity, not a commit or proof.
@@ -258,6 +261,14 @@ def brain_develop(repository: str, intent: str,
             "status": "HANDOFF_REQUIRED",
             "code": "DEV_GITHUB_DIRECT_COMMIT_REQUIRED",
             "request_id": request_id,
+            "checkpoint_schema": "UDV2_GITHUB_DIRECT_HANDOFF_V1",
+            "checkpoint_state": "AWAITING_OFFICIAL_GITHUB_DIRECT_COMMIT",
+            "resume_requirements": {
+                "github_commit_sha": "ACTUAL_40_HEX_SHA_FROM_GITHUB_DIRECT",
+                "signed_sha": "ONLY_AFTER_SEPARATE_REGISTERED_HMAC_V2_PASS",
+                "source_identity": request_id,
+                "readback": "VERIFY_GITHUB_HEAD_AND_CHANGED_FILE_CONTENT_BEFORE_SIGNING"
+            },
             "next_tool": "GitHub Direct",
             "required_next_action": "COMMIT_VALIDATED_CHANGES_THEN_RESUBMIT_SIGNED_SHA",
             "repository": repository,
