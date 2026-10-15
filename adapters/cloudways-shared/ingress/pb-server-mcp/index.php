@@ -60,6 +60,61 @@ $headers[] = 'X-Forwarded-Prefix: ' . PB_SERVER_MCP_PREFIX;
 
 $query = (string)($_SERVER['QUERY_STRING'] ?? '');
 $url = PB_SERVER_MCP_BACKEND . $backendPath . ($query !== '' ? '?' . $query : '');
+
+// Rewrite only OAuth discovery documents from the private loopback origin to
+// the externally reachable, separately scoped HTTPS MCP origin.
+if ($method === 'GET' && in_array($backendPath, [
+    '/.well-known/oauth-authorization-server',
+    '/.well-known/oauth-protected-resource/mcp'
+], true)) {
+    $metadataCurl = curl_init($url);
+    if ($metadataCurl === false) pb_server_mcp_fail(502, 'SERVER_MCP_METADATA_BACKEND_UNAVAILABLE');
+    curl_setopt_array($metadataCurl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_PROXY => '',
+        CURLOPT_HTTPHEADER => $headers
+    ]);
+    $metadataBody = curl_exec($metadataCurl);
+    $metadataStatus = (int)curl_getinfo($metadataCurl, CURLINFO_RESPONSE_CODE);
+    curl_close($metadataCurl);
+    if (!is_string($metadataBody) || $metadataStatus !== 200) {
+        pb_server_mcp_fail(502, 'SERVER_MCP_METADATA_BACKEND_FAILED');
+    }
+    $metadata = json_decode($metadataBody, true);
+    if (!is_array($metadata) || json_last_error() !== JSON_ERROR_NONE) {
+        pb_server_mcp_fail(502, 'SERVER_MCP_METADATA_INVALID_JSON');
+    }
+    $privateOrigin = PB_SERVER_MCP_BACKEND;
+    $publicOrigin = 'https://ai-runtime.larimarcode.com' . PB_SERVER_MCP_PREFIX;
+    $rewrite = static function($value) use (&$rewrite, $privateOrigin, $publicOrigin) {
+        if (is_string($value)) {
+            return str_replace($privateOrigin, $publicOrigin, $value);
+        }
+        if (is_array($value)) {
+            foreach ($value as $key => $item) $value[$key] = $rewrite($item);
+        }
+        return $value;
+    };
+    $metadata = $rewrite($metadata);
+    if ($backendPath === '/.well-known/oauth-protected-resource/mcp') {
+        $metadata['resource'] = $publicOrigin . '/mcp';
+        $metadata['authorization_servers'] = [$publicOrigin . '/'];
+    } else {
+        $metadata['issuer'] = $publicOrigin . '/';
+        $metadata['authorization_endpoint'] = $publicOrigin . '/authorize';
+        $metadata['token_endpoint'] = $publicOrigin . '/token';
+        if (isset($metadata['registration_endpoint'])) $metadata['registration_endpoint'] = $publicOrigin . '/register';
+    }
+    header('Content-Type: application/json');
+    header('Cache-Control: no-store');
+    header('X-PB-Server-MCP-Ingress: cloudways-loopback-v1');
+    echo json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $allowedResponseHeaders = ['content-type','www-authenticate','location','allow','mcp-session-id','access-control-allow-origin','access-control-allow-methods','access-control-allow-headers','access-control-expose-headers'];
 $responseHeaders=[]; $responseStatus=502; $headersCommitted=false;
 $ch=curl_init($url);
