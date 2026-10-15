@@ -41,6 +41,31 @@ class ApiAdapterTests(unittest.TestCase):
         self.assertEqual(value["data"]["oib"],"12345678901")
         self.assertEqual(call.call_args.args[0].get_header("Authorization"),"Bearer token")
 
+    def test_source_provenance_projection_excludes_company_data(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n):
+                return b'{"data":{"oib":"12345678901","name":"PRIVATE_FIXTURE"},"meta":{"as_of":"2026-10-12T00:00:00Z","provenance":[{"source_key":"FIXTURE","retrieved_at":"2026-10-12T00:00:00Z"}],"redistribution_allowed":true}}'
+        client = BusinessApiClient("https://example.org", "token")
+        with patch("business_api._safe_urlopen", return_value=Response()):
+            result = client.company_source_provenance_by_oib("12345678901")
+        self.assertEqual(result["oib"], "12345678901")
+        self.assertEqual(result["provenance"][0]["source_key"], "FIXTURE")
+        self.assertNotIn("data", result)
+        self.assertNotIn("name", result)
+
+    def test_source_provenance_does_not_bypass_rights(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n):
+                return b'{"data":{"oib":"12345678901"},"meta":{"as_of":"2026-10-12T00:00:00Z","provenance":[{"source_key":"FIXTURE","retrieved_at":"2026-10-12T00:00:00Z"}],"redistribution_allowed":false}}'
+        client = BusinessApiClient("https://example.org", "token")
+        with patch("business_api._safe_urlopen", return_value=Response()):
+            with self.assertRaisesRegex(BusinessApiError, "RIGHTS_NOT_GRANTED"):
+                client.company_source_provenance_by_oib("12345678901")
+
     def test_disallowed_redistribution_rejected(self):
         class Response:
             def __enter__(self): return self
