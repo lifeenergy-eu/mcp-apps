@@ -18,7 +18,7 @@ def load_handler():
         ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0),
         target], type_ignores=[])
     env = {"hashlib": hashlib, "json": json, "re": re,
-           "_verified_github_direct_source": lambda repository, sha, changes: "PASS",
+           "_verified_github_direct_source": lambda repository, sha, changes, request_id: "PASS",
            "helper_call": lambda action, payload: {"status": "QUEUED", "request_handle": "fixture"}}
     exec(compile(ast.fix_missing_locations(module), str(SOURCE), "exec"), env)
     return env["brain_develop"]
