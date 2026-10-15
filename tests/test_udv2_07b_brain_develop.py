@@ -17,7 +17,8 @@ def load_handler():
     module = ast.Module(body=[
         ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0),
         target], type_ignores=[])
-    env = {"hashlib": hashlib, "json": json, "re": re}
+    env = {"hashlib": hashlib, "json": json, "re": re,
+           "_verified_github_direct_source": lambda repository, sha, changes: "PASS"}
     exec(compile(ast.fix_missing_locations(module), str(SOURCE), "exec"), env)
     return env["brain_develop"]
 
@@ -57,7 +58,8 @@ class DevelopBoundary(unittest.TestCase):
         resume = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
                            changes=changes, existing_sha=sha,
                            checkpoint={"request_id": req["request_id"], "github_commit_sha": sha})
-        self.assertEqual(resume["code"], "DEV_GITHUB_DIRECT_READBACK_REQUIRED")
+        self.assertEqual(resume["code"], "DEV_GITHUB_DIRECT_READBACK_PASS_HMAC_V2_REQUIRED")
+        self.assertTrue(resume["git_source_verified"])
         self.assertFalse(resume["production_accepted"])
         invalid = self.call(repository="lifeenergy-eu/mcp-apps", intent="bounded regression",
                             changes=changes, existing_sha=sha,
