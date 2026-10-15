@@ -1,0 +1,20 @@
+name: Cloudways Magento Server MCP tests
+on:
+  push:
+    paths:
+      - 'apps/cloudways-magento-server-mcp/**'
+      - '.github/workflows/cloudways-magento-mcp-test.yml'
+  pull_request:
+    paths:
+      - 'apps/cloudways-magento-server-mcp/**'
+  workflow_dispatch:
+jobs:
+  helper-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and helper smoke tests
+        run: python apps/cloudways-magento-server-mcp/test_smoke.py
