@@ -34,6 +34,7 @@ if os.geteuid()==0:
     assert call("run",argv=["/usr/bin/id"],cwd="/")["code"] == "ROOT_EXECUTION_FORBIDDEN"
 else:
     assert call("run",argv=["/usr/bin/id","-u"],cwd="/")["status"]=="PASS"
+    assert call("run",argv=["/usr/bin/false"],cwd="/")["status"]=="COMMAND_FAILED"
     with tempfile.TemporaryDirectory() as d:
         path=str(Path(d)/"probe.txt")
         assert call("write_file",path=path,data_base64=base64.b64encode(b"magento-mcp-probe").decode(),mode=0o600)["status"]=="PASS"
