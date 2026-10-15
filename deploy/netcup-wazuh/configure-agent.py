@@ -5,6 +5,8 @@ This runtime operation is independent of Brain execution or deploy.
 """
 from __future__ import annotations
 import os
+import grp
+import subprocess
 import re
 import shutil
 from datetime import datetime, timezone
@@ -48,11 +50,21 @@ def main():
     out = Path("/var/backups") / ("wazuh-netcup-agent-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + ".xml")
     shutil.copy2(FILE, out)
     os.chmod(out, 0o600)
-    original_mode = FILE.stat().st_mode & 0o777
     tmp = FILE.with_name(".ossec.conf.p620-wazuh.tmp")
     tmp.write_text(cfg, encoding="utf-8")
-    os.chmod(tmp, original_mode)
+    os.chown(tmp, 0, grp.getgrnam("wazuh").gr_gid)
+    os.chmod(tmp, 0o640)
     os.replace(tmp, FILE)
+    validation = subprocess.run(
+        ["/var/ossec/bin/wazuh-agentd", "-t"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        timeout=20, check=False)
+    if validation.returncode != 0:
+        shutil.copy2(out, tmp)
+        os.chown(tmp, 0, grp.getgrnam("wazuh").gr_gid)
+        os.chmod(tmp, 0o640)
+        os.replace(tmp, FILE)
+        raise SystemExit("WAZUH_AGENT_VALIDATION_FAILED_ROLLBACK_APPLIED")
     print("CONFIG_VALID; WP_CONFIG_FIM_FILES",len(files),"PHP_LOG_ENABLED",PHP_LOG.is_file())
     print("BACKUP",str(out))
 
