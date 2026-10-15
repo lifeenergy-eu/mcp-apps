@@ -268,6 +268,56 @@ def _verified_github_direct_source(repository: str, commit_sha: str,
         return "DEV_GITHUB_READBACK_UNAVAILABLE"
 
 
+def _dev_signed_head(repository: str, base_sha: str, request_id: str) -> str | None:
+    if repository != "lifeenergy-eu/mcp-apps":
+        return None
+    checkout = Path("/home/master/.project-brain/releases/mcp-apps-latest")
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    try:
+        remote_head = subprocess.check_output(
+            ["git", "-C", str(checkout), "ls-remote", "--heads", "origin", "main"],
+            stderr=subprocess.DEVNULL, timeout=20, env=env).decode().split()[0]
+        if re.fullmatch(r"[0-9a-f]{40}", remote_head) is None:
+            return None
+        subprocess.check_call(
+            ["git", "-C", str(checkout), "fetch", "--no-tags", "origin", remote_head],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, env=env)
+        ancestry = subprocess.run(
+            ["git", "-C", str(checkout), "merge-base", "--is-ancestor", base_sha, remote_head],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, env=env)
+        if ancestry.returncode != 0:
+            return None
+        message = subprocess.check_output(
+            ["git", "-C", str(checkout), "show", "-s", "--format=%B", remote_head],
+            stderr=subprocess.DEVNULL, timeout=20, env=env).decode()
+        if all(marker in message for marker in (
+                "PB-Idempotency-Key: udv2-dev-" + request_id[:40],
+                "PB-Attestation-Version: 2",
+                "PB-Source-Attestation: hmac-sha256:")):
+            return remote_head
+    except (OSError, subprocess.SubprocessError, UnicodeError, IndexError):
+        pass
+    return None
+
+
+def _dev_running_sha(signed_sha: str) -> bool:
+    expected = ("/controlled-execution-mcp/releases/lifeenergy-eu__mcp-apps/" +
+                signed_sha + "/apps/project-brain-controlled-execution/server.py")
+    try:
+        for proc in Path("/proc").iterdir():
+            if not proc.name.isdecimal():
+                continue
+            try:
+                argv = (proc / "cmdline").read_bytes().split(b"\\0")
+                if any(arg.decode("utf-8", "replace").endswith(expected) for arg in argv if arg):
+                    return True
+            except (OSError, PermissionError):
+                continue
+    except OSError:
+        return False
+    return False
+
+
 @mcp.tool(annotations=WRITE)
 def brain_develop(repository: str, intent: str,
                   changes: list[dict[str, str]] | None = None,
@@ -286,7 +336,7 @@ def brain_develop(repository: str, intent: str,
     if checkpoint is not None:
         if changes is None or existing_sha is None:
             return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_INPUTS_REQUIRED"}
-        if not isinstance(checkpoint, dict) or set(checkpoint) != {"request_id", "github_commit_sha"}:
+        if not isinstance(checkpoint, dict) or not {"request_id", "github_commit_sha"} <= set(checkpoint) or not set(checkpoint) <= {"request_id", "github_commit_sha", "hmac_request_handle", "deploy_request_handle"}:
             return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_PROOF_INVALID"}
         if (checkpoint["github_commit_sha"] != existing_sha or
                 not isinstance(existing_sha, str) or
@@ -326,6 +376,49 @@ def brain_develop(repository: str, intent: str,
             if readback != "PASS":
                 return {"status": "FAIL_CLOSED", "failure_code": readback,
                         "request_id": request_id, "production_accepted": False}
+            hmac_handle = checkpoint.get("hmac_request_handle")
+            deploy_handle = checkpoint.get("deploy_request_handle")
+            if hmac_handle is not None:
+                if not isinstance(hmac_handle, str) or re.fullmatch(r"[0-9a-f]{64}", hmac_handle) is None:
+                    return {"status": "FAIL_CLOSED", "failure_code": "DEV_HMAC_HANDLE_INVALID"}
+                sign_receipt = helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": hmac_handle})
+                if sign_receipt.get("status") != "PASS":
+                    return {"status": sign_receipt.get("status", "PENDING"),
+                            "code": "DEV_HMAC_STATUS_NOT_COMPLETED", "request_id": request_id,
+                            "hmac_request_handle": hmac_handle, "production_accepted": False}
+                signed_sha = _dev_signed_head(repository, existing_sha, request_id)
+                if signed_sha is None:
+                    return {"status": "FAIL_CLOSED", "failure_code": "DEV_SIGNED_SOURCE_NOT_VERIFIED",
+                            "request_id": request_id, "production_accepted": False}
+                if deploy_handle is not None:
+                    if not isinstance(deploy_handle, str) or re.fullmatch(r"[0-9a-f]{64}", deploy_handle) is None:
+                        return {"status": "FAIL_CLOSED", "failure_code": "DEV_DEPLOY_HANDLE_INVALID"}
+                    deploy_receipt = helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": deploy_handle})
+                    if deploy_receipt.get("status") != "PASS":
+                        return {"status": deploy_receipt.get("status", "PENDING"),
+                                "code": "DEV_DEPLOY_STATUS_NOT_COMPLETED", "request_id": request_id,
+                                "deploy_request_handle": deploy_handle, "production_accepted": False}
+                    if not _dev_running_sha(signed_sha):
+                        return {"status": "PENDING", "code": "DEV_PRODUCTION_SHA_READBACK_PENDING",
+                                "request_id": request_id, "signed_sha": signed_sha,
+                                "deploy_request_handle": deploy_handle, "production_accepted": False}
+                    return {"status": "PASS", "code": "DEV_SIGNED_SOURCE_DEPLOY_SHA_ACCEPTED",
+                            "request_id": request_id, "github_commit_sha": existing_sha,
+                            "signed_sha": signed_sha, "production_sha": signed_sha,
+                            "hmac_request_handle": hmac_handle,
+                            "deploy_request_handle": deploy_handle,
+                            "git_source_verified": True, "production_accepted": True}
+                deploy = helper_call("RUN_REGISTERED_TASK", {
+                    "task": {"repository": repository, "commit_sha": signed_sha},
+                    "wait_seconds": 8,
+                })
+                if not isinstance(deploy, dict) or deploy.get("status") not in ("QUEUED", "PENDING", "PASS"):
+                    return {"status": "FAIL_CLOSED", "failure_code": "DEV_DEPLOY_SUBMISSION_INVALID"}
+                return {"status": deploy["status"], "code": "DEV_SIGNED_DEPLOY_SUBMITTED",
+                        "request_id": request_id, "signed_sha": signed_sha,
+                        "hmac_request_handle": hmac_handle,
+                        "deploy_request_handle": deploy.get("request_handle"),
+                        "production_accepted": False}
             # Existing HMAC V2 Run Core capability signs the GitHub Direct
             # source tree; this is NOT a general-purpose source commit writer.
             result = helper_call("PUBLIC_SOURCE_MUTATION", {
