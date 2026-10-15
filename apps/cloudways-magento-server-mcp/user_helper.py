@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Cloudways Magento user-mode executor. No sudo/root escalation; all requests run as the SSH user.\n"""
+"""Cloudways Magento user-mode executor. No sudo/root escalation; all requests run as the SSH user.
+"""
 from __future__ import annotations
 import base64
 import json
@@ -115,6 +116,9 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> int:
     import sys
+    if os.geteuid() == 0:
+        print(json.dumps({'status':'FAIL_CLOSED','code':'ROOT_EXECUTION_FORBIDDEN'}))
+        return 2
     raw = sys.stdin.buffer.read(MAX_PAYLOAD_BYTES + 1)
     if len(raw) > MAX_PAYLOAD_BYTES:
         print(json.dumps({'status':'FAIL_CLOSED','code':'REQUEST_TOO_LARGE'}))
