@@ -80,6 +80,21 @@ class DevelopBoundary(unittest.TestCase):
                               checkpoint={"request_id": req["request_id"], "github_commit_sha": "b" * 40})
         self.assertEqual(wrong_sha["failure_code"], "DEV_RESUME_SHA_MISMATCH")
 
+    def test_completed_checkpoint_replay_keeps_production_identity(self):
+        changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
+        original = self.call(repository="lifeenergy-eu/mcp-apps",
+                             intent="bounded regression", changes=changes)
+        cp = {"request_id": original["request_id"], "github_commit_sha": "d" * 40,
+              "hmac_request_handle": "a" * 64, "deploy_request_handle": "b" * 64}
+        kwargs = {"repository": "lifeenergy-eu/mcp-apps",
+                  "intent": "bounded regression", "changes": changes,
+                  "existing_sha": "d" * 40, "checkpoint": cp}
+        first = self.call(**kwargs)
+        again = self.call(**kwargs)
+        self.assertEqual(first["code"], "DEV_SIGNED_SOURCE_DEPLOY_SHA_ACCEPTED")
+        self.assertEqual(first["production_sha"], again["production_sha"])
+        self.assertTrue(again["production_accepted"])
+
     def test_staged_resume_through_signed_deploy_and_runtime(self):
         changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
         original = self.call(repository="lifeenergy-eu/mcp-apps",
