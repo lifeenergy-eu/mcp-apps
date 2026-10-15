@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloudways Magento Direct Server MCP
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.project-brain/magento-server-mcp/current
+EnvironmentFile=%h/.config/systemd/user/magento-server-mcp.env
+ExecStart=%h/.project-brain/control-plane/controlled-execution-mcp/venv/bin/python %h/.project-brain/magento-server-mcp/current/apps/cloudways-magento-server-mcp/server.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
