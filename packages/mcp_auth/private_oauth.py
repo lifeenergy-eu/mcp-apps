@@ -373,10 +373,13 @@ def build_auth() -> tuple[str, list[str], AuthSettings | None, PrivateOAuthProvi
     if not issuer or not resource or not db_path or not password_file:
         raise RuntimeError("MCP_OAUTH_CONFIGURATION_INCOMPLETE")
 
+    minimum_scopes = _csv("MCP_OAUTH_REQUIRED_SCOPES", ",".join(scopes))
+    if not set(minimum_scopes).issubset(set(scopes)):
+        raise RuntimeError("MCP_OAUTH_REQUIRED_SCOPES_INVALID")
     settings = AuthSettings(
         issuer_url=AnyHttpUrl(issuer),
         resource_server_url=AnyHttpUrl(resource),
-        required_scopes=scopes,
+        required_scopes=minimum_scopes,
         client_registration_options=ClientRegistrationOptions(
             enabled=True,
             client_secret_expiry_seconds=None,
