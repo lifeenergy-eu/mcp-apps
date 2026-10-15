@@ -20,7 +20,7 @@ function pb_server_mcp_backend_path(string $path): ?string {
     }
     if ($path === '/.well-known/oauth-authorization-server' . $prefix) return '/.well-known/oauth-authorization-server';
     if ($path === '/.well-known/oauth-protected-resource' . $prefix . '/mcp') {
-        return '/.well-known/oauth-protected-resource' . $prefix . '/mcp';
+        return '/.well-known/oauth-protected-resource/mcp';
     }
     return null;
 }
