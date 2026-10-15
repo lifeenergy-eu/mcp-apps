@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Root-only P620 server administration helper, callable only through pinned sudo."""
+"""Root-only temporary migration helper, callable ONLY by pinned sudo rule."""
 from __future__ import annotations
 import json
 import os
@@ -21,7 +21,7 @@ def main() -> int:
         # Never output raw input/keys to journal; write audited operation metadata only.
         output=execute(obj)
         import syslog
-        syslog.openlog('p620-server-mcp')
+        syslog.openlog('p620-migration-mcp')
         syslog.syslog(syslog.LOG_AUTHPRIV|syslog.LOG_NOTICE, f"operation={obj.get('operation')} status={output.get('status')} request={obj['request_id']}")
     except (AdminError, ValueError, KeyError, OSError, TypeError) as exc:
         output={'status':'FAIL_CLOSED','code':'ROOT_REQUEST_REJECTED'}
