@@ -40,7 +40,7 @@ def main():
     if PHP_LOG.is_file() and LOG_START not in cfg:
         cfg, count = re.subn(r"(?m)^</ossec_config>\s*$", lambda m: logfile + m.group(0), cfg, count=1)
         if count != 1: raise SystemExit("LOG_INSERTION_POINT_MISSING")
-    ET.fromstring(cfg)
+    # Wazuh supports multiple top-level <ossec_config> blocks; wrap for XML validation.\n    ET.fromstring("<wazuh-config-root>" + cfg + "</wazuh-config-root>")
     before = FILE.read_text(encoding="utf-8")
     if before == cfg:
         print("ALREADY_CONFIGURED; WP_CONFIG_FIM_FILES",len(files))
