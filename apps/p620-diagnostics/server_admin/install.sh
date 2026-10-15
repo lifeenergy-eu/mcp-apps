@@ -14,10 +14,16 @@ test -x /srv/project-brain/mcp-apps/venv/bin/python
 test -f /usr/local/libexec/p620-debug-read
 /usr/bin/python3 -m py_compile "$ROOT/apps/p620-diagnostics/server.py" "$ROOT/apps/p620-diagnostics/server_admin/admin_executor.py" "$ROOT/apps/p620-diagnostics/server_admin/root_helper.py"
 install -d -m 0755 /opt/p620-server-mcp/app /etc/systemd/system/"$SERVICE".d
-if [ ! -e /opt/p620-server-mcp/packages ]; then
-  ln -s "$(dirname "$CURRENT_DIR")/packages" /opt/p620-server-mcp/packages
+# Keep package snapshot local to this MCP, never reuse stale release OAuth code.
+test -f "$ROOT/packages/mcp_auth/private_oauth.py"
+test -f "$ROOT/packages/infrastructure_read_policy/__init__.py"
+if [ -L /opt/p620-server-mcp/packages ]; then
+  unlink /opt/p620-server-mcp/packages
 fi
-test -d /opt/p620-server-mcp/packages
+install -d -m 0755 /opt/p620-server-mcp/packages
+cp -a "$ROOT/packages/mcp_auth" /opt/p620-server-mcp/packages/
+cp -a "$ROOT/packages/infrastructure_read_policy" /opt/p620-server-mcp/packages/
+/usr/bin/python3 -m py_compile /opt/p620-server-mcp/packages/mcp_auth/private_oauth.py
 install -m 0644 "$ROOT/apps/p620-diagnostics/server.py" /opt/p620-server-mcp/app/server.py
 install -m 0644 "$ROOT/apps/p620-diagnostics/auth.py" /opt/p620-server-mcp/app/auth.py
 install -m 0644 "$ROOT/apps/p620-diagnostics/server_admin/admin_executor.py" /opt/p620-server-mcp/admin_executor.py
@@ -51,7 +57,7 @@ if ! systemctl is-active --quiet "$SERVICE"; then
   echo "SERVICE_FAILED: inspect journalctl -u $SERVICE -n 35"
   exit 1
 fi
-echo "P620_SERVER_MCP_SYSTEMD_ACTIVE (OAuth and live tools still require acceptance checks)"
+echo "P620_SERVER_MCP_SYSTEMD_ACTIVE (OAuth packages refreshed; live acceptance pending)"
 systemctl show "$SERVICE" -p ActiveState -p UnitFileState -p WorkingDirectory
 echo "Previous OAuth endpoint retained. Existing ChatGPT infra.read remains valid; WRITE requires separately granted control.execute."
 echo "Existing Brain execution MCP NOT MODIFIED."
