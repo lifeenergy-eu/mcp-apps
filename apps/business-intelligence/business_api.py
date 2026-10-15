@@ -59,6 +59,13 @@ class BusinessApiClient:
             raise BusinessApiError("BUSINESS_API_RIGHTS_NOT_GRANTED")
         if not meta["provenance"] or not meta["as_of"]:
             raise BusinessApiError("BUSINESS_API_SOURCE_TRAIL_REQUIRED")
+        for source in meta["provenance"]:
+            if (not isinstance(source, dict)
+                    or not isinstance(source.get("source_key"), str)
+                    or not source["source_key"].strip()
+                    or not isinstance(source.get("retrieved_at"), str)
+                    or not source["retrieved_at"].strip()):
+                raise BusinessApiError("BUSINESS_API_SOURCE_TRAIL_REQUIRED")
         return result
 
     def company_by_oib(self, oib: str):
