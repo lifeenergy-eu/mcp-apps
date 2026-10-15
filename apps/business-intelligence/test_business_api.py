@@ -34,6 +34,17 @@ class ApiAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(BusinessApiError, "RIGHTS_NOT_GRANTED"):
                 client.company_by_oib("12345678901")
 
+    def test_incomplete_source_entry_rejected(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n):
+                return b'{"data":{"oib":"12345678901"},"meta":{"as_of":"2026-10-12T00:00:00Z","provenance":[{"source_key":"FIXTURE"}],"redistribution_allowed":true}}'
+        client = BusinessApiClient("https://example.org", "token")
+        with patch("business_api.urlopen", return_value=Response()):
+            with self.assertRaisesRegex(BusinessApiError, "SOURCE_TRAIL_REQUIRED"):
+                client.company_by_oib("12345678901")
+
     def test_missing_provenance_rejected(self):
         class Response:
             def __enter__(self): return self
