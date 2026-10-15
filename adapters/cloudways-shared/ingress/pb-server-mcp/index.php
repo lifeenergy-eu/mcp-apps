@@ -135,7 +135,18 @@ curl_setopt_array($ch,[
         if ($trim==='') {
             if (!$headersCommitted && $responseStatus>=100) {
                 http_response_code($responseStatus);
-                foreach ($responseHeaders as [$name,$value]) if (in_array($name,$allowedResponseHeaders,true)) header($name.': '.$value,false);
+                foreach ($responseHeaders as [$name,$value]) {
+                    if (!in_array($name,$allowedResponseHeaders,true)) continue;
+                    if ($name === 'www-authenticate') {
+                        // Public OAuth resource discovery must never point to loopback.
+                        $value = str_replace(
+                            'http://127.0.0.1:18794/.well-known/oauth-protected-resource/mcp',
+                            'https://ai-runtime.larimarcode.com/.well-known/oauth-protected-resource/pb-server-mcp/mcp',
+                            $value
+                        );
+                    }
+                    header($name.': '.$value,false);
+                }
                 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
                 header('X-PB-Server-MCP-Ingress: cloudways-loopback-v1');
                 header('X-Accel-Buffering: no');
