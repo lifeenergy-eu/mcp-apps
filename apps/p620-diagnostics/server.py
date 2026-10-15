@@ -26,7 +26,7 @@ assert PUBLIC_HOST and '/' not in PUBLIC_HOST and ':' not in PUBLIC_HOST, 'INVAL
 assert AUTH_MODE == 'oauth_private', 'PRIVATE_OAUTH_REQUIRED'
 assert OAUTH_SCOPES == ['control.execute'], 'OAUTH_SCOPE_MISMATCH'
 HELPER='/opt/p620-server-mcp/root_helper.py'
-MCP=FastMCP('P620 Server Server MCP',
+MCP=FastMCP('P620 Server MCP',
     instructions='Direct P620 Ubuntu server administration: authenticated diagnostics, read and write commands. Not a Brain deploy or execution gateway. Never output secrets.',
     host=HOST, port=PORT, streamable_http_path='/mcp',stateless_http=True,json_response=True,
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
