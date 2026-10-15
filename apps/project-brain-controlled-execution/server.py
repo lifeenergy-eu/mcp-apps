@@ -308,7 +308,7 @@ def _dev_running_sha(signed_sha: str) -> bool:
             if not proc.name.isdecimal():
                 continue
             try:
-                argv = (proc / "cmdline").read_bytes().split(b"\\0")
+                argv = (proc / "cmdline").read_bytes().split(b"\0")
                 if any(arg.decode("utf-8", "replace").endswith(expected) for arg in argv if arg):
                     return True
             except (OSError, PermissionError):
