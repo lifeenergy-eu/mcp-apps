@@ -217,7 +217,7 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
 
 
 def _verified_github_direct_source(repository: str, commit_sha: str,
-                                   changes: list[dict[str, str]]) -> str:
+                                   changes: list[dict[str, str]], request_id: str) -> str:
     """Read only an allowlisted GitHub checkout; never commit or deploy."""
     if repository != "lifeenergy-eu/mcp-apps":
         return "DEV_READBACK_REPOSITORY_NOT_REGISTERED"
@@ -250,7 +250,7 @@ def _verified_github_direct_source(repository: str, commit_sha: str,
             if ancestry.returncode != 0:
                 return "DEV_GITHUB_HEAD_MISMATCH"
             message = git("show", "-s", "--format=%B", head[0])
-            if ("PB-Idempotency-Key: udv2-dev-" not in message or
+            if (("PB-Idempotency-Key: udv2-dev-" + request_id[:40]) not in message or
                     "PB-Attestation-Version: 2" not in message or
                     "PB-Source-Attestation: hmac-sha256:" not in message):
                 return "DEV_GITHUB_HEAD_MISMATCH"
@@ -322,7 +322,7 @@ def brain_develop(repository: str, intent: str,
         if checkpoint is not None:
             if checkpoint.get("request_id") != request_id:
                 return {"status": "FAIL_CLOSED", "failure_code": "DEV_RESUME_REQUEST_MISMATCH"}
-            readback = _verified_github_direct_source(repository, existing_sha, changes)
+            readback = _verified_github_direct_source(repository, existing_sha, changes, request_id)
             if readback != "PASS":
                 return {"status": "FAIL_CLOSED", "failure_code": readback,
                         "request_id": request_id, "production_accepted": False}
