@@ -351,6 +351,8 @@ def brain_develop(repository: str, intent: str,
         if not isinstance(repository, str) or not re.fullmatch(
                 r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
             return {"status": "FAIL_CLOSED", "failure_code": "DEV_REPOSITORY_INVALID"}
+        if repository != "lifeenergy-eu/mcp-apps":
+            return {"status": "FAIL_CLOSED", "failure_code": "DEV_REPOSITORY_NOT_REGISTERED"}
         if not isinstance(changes, list) or not 1 <= len(changes) <= 64:
             return {"status": "FAIL_CLOSED", "failure_code": "DEV_CHANGES_INVALID"}
         seen = set()
