@@ -39,6 +39,7 @@ WorkingDirectory=/opt/p620-server-mcp/app
 ExecStart=
 ExecStart=/srv/project-brain/mcp-apps/venv/bin/python /opt/p620-server-mcp/app/server.py
 Environment=MCP_OAUTH_SCOPES=infra.read,control.execute
+Environment=MCP_OAUTH_REQUIRED_SCOPES=infra.read
 Restart=always
 RestartSec=3
 UNIT
