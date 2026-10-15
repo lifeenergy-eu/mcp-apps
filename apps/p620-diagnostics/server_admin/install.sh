@@ -38,7 +38,7 @@ cat > "$DROP" <<'UNIT'
 WorkingDirectory=/opt/p620-server-mcp/app
 ExecStart=
 ExecStart=/srv/project-brain/mcp-apps/venv/bin/python /opt/p620-server-mcp/app/server.py
-Environment=MCP_OAUTH_SCOPES=control.execute
+Environment=MCP_OAUTH_SCOPES=infra.read,control.execute
 Restart=always
 RestartSec=3
 UNIT
@@ -52,5 +52,5 @@ if ! systemctl is-active --quiet "$SERVICE"; then
 fi
 echo "P620_SERVER_MCP_SYSTEMD_ACTIVE (OAuth and live tools still require acceptance checks)"
 systemctl show "$SERVICE" -p ActiveState -p UnitFileState -p WorkingDirectory
-echo "Previous OAuth endpoint retained. Refresh existing ChatGPT plugin and reauthorize control.execute."
+echo "Previous OAuth endpoint retained. Existing ChatGPT infra.read remains valid; WRITE requires separately granted control.execute."
 echo "Existing Brain execution MCP NOT MODIFIED."
