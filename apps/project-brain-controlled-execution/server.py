@@ -378,10 +378,16 @@ def brain_develop(repository: str, intent: str,
                         "request_id": request_id, "production_accepted": False}
             hmac_handle = checkpoint.get("hmac_request_handle")
             deploy_handle = checkpoint.get("deploy_request_handle")
+            if deploy_handle is not None and hmac_handle is None:
+                return {"status": "FAIL_CLOSED", "failure_code": "DEV_DEPLOY_WITHOUT_HMAC_PROOF",
+                        "request_id": request_id, "production_accepted": False}
             if hmac_handle is not None:
                 if not isinstance(hmac_handle, str) or re.fullmatch(r"[0-9a-f]{64}", hmac_handle) is None:
                     return {"status": "FAIL_CLOSED", "failure_code": "DEV_HMAC_HANDLE_INVALID"}
                 sign_receipt = helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": hmac_handle})
+                if sign_receipt.get("status") not in ("PASS", "QUEUED", "PENDING"):
+                    return {"status": "FAIL_CLOSED", "failure_code": "DEV_HMAC_OPERATION_NOT_PASS",
+                            "request_id": request_id, "production_accepted": False}
                 if sign_receipt.get("status") != "PASS":
                     return {"status": sign_receipt.get("status", "PENDING"),
                             "code": "DEV_HMAC_STATUS_NOT_COMPLETED", "request_id": request_id,
@@ -394,10 +400,15 @@ def brain_develop(repository: str, intent: str,
                     if not isinstance(deploy_handle, str) or re.fullmatch(r"[0-9a-f]{64}", deploy_handle) is None:
                         return {"status": "FAIL_CLOSED", "failure_code": "DEV_DEPLOY_HANDLE_INVALID"}
                     deploy_receipt = helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": deploy_handle})
+                    if deploy_receipt.get("status") not in ("PASS", "QUEUED", "PENDING"):
+                        return {"status": "FAIL_CLOSED", "failure_code": "DEV_DEPLOY_OPERATION_NOT_PASS",
+                                "request_id": request_id, "production_accepted": False}
                     if deploy_receipt.get("status") != "PASS":
                         return {"status": deploy_receipt.get("status", "PENDING"),
                                 "code": "DEV_DEPLOY_STATUS_NOT_COMPLETED", "request_id": request_id,
                                 "deploy_request_handle": deploy_handle, "production_accepted": False}
+                    # Receipt PASS alone is insufficient; the signed SHA must
+                    # be the exact active process, and all source evidence rechecked.
                     if not _dev_running_sha(signed_sha):
                         return {"status": "PENDING", "code": "DEV_PRODUCTION_SHA_READBACK_PENDING",
                                 "request_id": request_id, "signed_sha": signed_sha,
