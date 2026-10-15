@@ -2,8 +2,8 @@
   "schema_version": "1.4",
   "app_id": "PRIVATE-INFRASTRUCTURE-ACCESS",
   "name": "P620 Ubuntu Server MCP",
-  "version": "0.7.0",
-  "status": "SOURCE_READY_HOST_DEPLOY_PENDING",
+  "version": "0.7.1",
+  "status": "SOURCE_READY_WSL_DEPLOY_PENDING",
   "transport": "streamable-http",
   "path": "/mcp",
   "authentication_modes": [
@@ -27,7 +27,6 @@
     "login": "SINGLE_OPERATOR_PASSWORD_RUNTIME_SECRET",
     "protected_resource_metadata": "SDK_GENERATED_RFC9728",
     "scopes": [
-      "infra.read",
       "control.execute"
     ],
     "secrets_in_repository": false,
@@ -76,6 +75,6 @@
     "existing_chatgpt_plugin": "P620_Read_MCP",
     "existing_listener": "127.0.0.1:8792",
     "deployment": "IN_PLACE_SERVICE_OVERRIDE_PRESERVE_OAUTH_AND_INGRESS",
-    "notes": "Existing Brain execution MCP and deploy pipeline unchanged. ChatGPT OAuth must reauthorize the expanded scope without reinstalling plugin."
+    "notes": "Entire existing P620 MCP uses single control.execute scope for administrative and read tools; reconnect/re-authorize existing ChatGPT plugin once. No new plugin."
   }
 }
