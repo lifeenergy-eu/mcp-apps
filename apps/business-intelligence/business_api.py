@@ -55,6 +55,10 @@ class BusinessApiClient:
         meta = result["meta"]
         if not isinstance(meta.get("provenance"), list) or not isinstance(meta.get("as_of"), str):
             raise BusinessApiError("BUSINESS_API_PROVENANCE_ENVELOPE_REQUIRED")
+        if meta.get("redistribution_allowed") is not True:
+            raise BusinessApiError("BUSINESS_API_RIGHTS_NOT_GRANTED")
+        if not meta["provenance"] or not meta["as_of"]:
+            raise BusinessApiError("BUSINESS_API_SOURCE_TRAIL_REQUIRED")
         return result
 
     def company_by_oib(self, oib: str):
