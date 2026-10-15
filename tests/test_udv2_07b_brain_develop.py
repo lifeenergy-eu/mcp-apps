@@ -19,7 +19,10 @@ def load_handler():
         target], type_ignores=[])
     env = {"hashlib": hashlib, "json": json, "re": re,
            "_verified_github_direct_source": lambda repository, sha, changes, request_id: "PASS",
-           "helper_call": lambda action, payload: {"status": "QUEUED", "request_handle": "fixture"}}
+           "_dev_signed_head": lambda repository, sha, request_id: "c" * 40,
+           "_dev_running_sha": lambda sha: True,
+           "helper_call": lambda action, payload: ({"status": "PASS"} if action == "PUBLIC_OPERATION_STATUS" else
+               {"status": "QUEUED", "request_handle": "b" * 64 if action == "RUN_REGISTERED_TASK" else "a" * 64})}
     exec(compile(ast.fix_missing_locations(module), str(SOURCE), "exec"), env)
     return env["brain_develop"]
 
@@ -70,6 +73,24 @@ class DevelopBoundary(unittest.TestCase):
                               changes=changes, existing_sha=sha,
                               checkpoint={"request_id": req["request_id"], "github_commit_sha": "b" * 40})
         self.assertEqual(wrong_sha["failure_code"], "DEV_RESUME_SHA_MISMATCH")
+
+    def test_staged_resume_through_signed_deploy_and_runtime(self):
+        changes = [{"path": "tests/fixture.txt", "operation": "create", "content": "safe"}]
+        original = self.call(repository="lifeenergy-eu/mcp-apps",
+                             intent="bounded regression", changes=changes)
+        base = {"request_id": original["request_id"], "github_commit_sha": "d" * 40}
+        args = {"repository": "lifeenergy-eu/mcp-apps",
+                "intent": "bounded regression", "changes": changes, "existing_sha": "d" * 40}
+        submitted = self.call(**args, checkpoint=base)
+        self.assertEqual(submitted["code"], "DEV_HMAC_V2_RUN_CORE_SUBMITTED")
+        signed = self.call(**args, checkpoint=dict(base, hmac_request_handle="a" * 64))
+        self.assertEqual(signed["code"], "DEV_SIGNED_DEPLOY_SUBMITTED")
+        self.assertEqual(signed["signed_sha"], "c" * 40)
+        final = self.call(**args, checkpoint=dict(base, hmac_request_handle="a" * 64,
+                                                   deploy_request_handle="b" * 64))
+        self.assertEqual(final["status"], "PASS")
+        self.assertTrue(final["production_accepted"])
+        self.assertEqual(final["production_sha"], final["signed_sha"])
 
     def test_unsigned_sha_format_rejected(self):
         result = self.call(repository="lifeenergy-eu/mcp-apps",
