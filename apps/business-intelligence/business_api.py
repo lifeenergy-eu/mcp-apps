@@ -8,10 +8,16 @@ from __future__ import annotations
 import json
 import os
 from urllib.error import HTTPError, URLError
+from urllib.request import HTTPRedirectHandler, build_opener
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 MAX_RESPONSE_BYTES = 524288
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 class BusinessApiError(RuntimeError):
@@ -36,7 +42,7 @@ class BusinessApiClient:
             method="GET",
         )
         try:
-            with urlopen(request, timeout=12) as response:
+            with build_opener(_NoRedirect()).open(request, timeout=12) as response:
                 payload = response.read(MAX_RESPONSE_BYTES + 1)
                 if len(payload) > MAX_RESPONSE_BYTES:
                     raise BusinessApiError("API_RESPONSE_TOO_LARGE")
