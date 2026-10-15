@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Direct P620 Ubuntu administrator executor for authenticated Server MCP."""
+"""P620 administrative executor candidate: deliberately NOT activated or installed.
+
+This requires a separately authorised, root-owned invocation boundary and OAuth
+MCP front-end.  The repository Brain policy currently forbids arbitrary root
+commands.  Do not deploy this module until the canonical authority is updated.
+"""
 from __future__ import annotations
 import base64
 import json
@@ -53,7 +58,7 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
         parent = target.parent
         if not parent.is_dir():
             raise AdminError('PARENT_NOT_FOUND')
-        fd, tmp = tempfile.mkstemp(prefix='.netcup-write-', dir=parent)
+        fd, tmp = tempfile.mkstemp(prefix='.p620-write-', dir=parent)
         try:
             with os.fdopen(fd, 'wb') as handle:
                 os.fchmod(handle.fileno(), mode)
