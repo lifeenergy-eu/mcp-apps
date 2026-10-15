@@ -22,3 +22,11 @@ Next: implement Laravel contract and authenticated read adapter, then guarded lo
 ## Upstream URL acceptance
 
 The private adapter requires a parsed HTTPS hostname and rejects URL user information, query strings and fragments. It refuses redirects. These source-side checks do not grant external client access.
+
+## Internal operator business tools (source-only)
+
+- `company_profile_by_oib(oib)`: exact OIB lookup via the existing central Business API.
+- `company_source_provenance_by_oib(oib)`: source identifiers, retrieval times and data `as_of`; no company profile fields in the projection.
+- Both tools use the same private authenticated read contract and deny results that lack explicit redistribution clearance or valid provenance.
+- This is **not** a new CI/CRM UX, an independent company master, a direct P620 datastore connection or an external customer product.
+- No runtime installation or external-client activation is implied by GitHub source acceptance.
