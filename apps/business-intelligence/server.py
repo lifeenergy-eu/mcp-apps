@@ -15,9 +15,9 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp_auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
 from business_api import BusinessApiClient, BusinessApiError
+from product_access import require_private_operator_mode
 
-if AUTH_MODE != "oauth_private":
-    raise RuntimeError("BUSINESS_MCP_OAUTH_REQUIRED")
+require_private_operator_mode()
 
 host = os.environ.get("BUSINESS_MCP_BIND_HOST", "127.0.0.1")
 port = int(os.environ.get("BUSINESS_MCP_BIND_PORT", "8795"))
