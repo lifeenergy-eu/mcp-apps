@@ -139,7 +139,8 @@ systemctl daemon-reload
 systemctl enable --now ssd-server-mcp.service >>"$LOG" 2>&1
 sleep 3
 systemctl is-active --quiet ssd-server-mcp.service || { journalctl -u ssd-server-mcp -n 25 --no-pager; die "MCP service not active"; }
-systemctl enable --now caddy >>"$LOG" 2>&1
+systemctl enable caddy >>"$LOG" 2>&1
+systemctl restart caddy >>"$LOG" 2>&1
 systemctl is-active --quiet caddy || die "HTTPS proxy not active"
 msg "Verify OAuth discovery and refusal of unauthenticated administration"
 local_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:$PORT/mcp)"
