@@ -59,6 +59,31 @@ def company_source_provenance_by_oib(oib: str) -> dict:
     return BusinessApiClient.from_environment().company_source_provenance_by_oib(oib)
 
 
+@mcp.tool()
+def business_profile_by_identifier(
+    identifier_type: str, identifier_value: str,
+    source_id: str = "", limit: int = 20,
+) -> dict:
+    """Find a Fabric subject by exact typed OIB, MBS, MB, VAT ID, LEI or
+    source-scoped official/craft/agricultural registry identifier.
+    Requires source_id for source-specific types and verified release rights.
+    """
+    return BusinessApiClient.from_environment().profile_by_identifier(
+        identifier_type=identifier_type,
+        identifier_value=identifier_value,
+        source_id=source_id or None,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def business_profile_by_subject_id(subject_id: str, limit: int = 20) -> dict:
+    """Read a bounded, provenance-backed business profile by stable Fabric subject ID."""
+    return BusinessApiClient.from_environment().profile_by_identifier(
+        subject_id=subject_id, limit=limit,
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(mcp.streamable_http_app(), host=host, port=port, log_level="info")
