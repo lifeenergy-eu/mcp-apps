@@ -112,6 +112,77 @@ class ApiAdapterTests(unittest.TestCase):
                     with self.assertRaisesRegex(BusinessApiError, "SOURCE_RIGHTS_NOT_GRANTED"):
                         client.company_by_oib("12345678901")
 
+    def test_typed_profile_selectors_reject_invalid_before_network(self):
+        client = BusinessApiClient("https://example.org", "token")
+        cases = [
+            {"oib": "invalid"},
+            {"oib": "12345678901", "subject_id": "s1"},
+            {"identifier_type": "MBS"},
+            {"identifier_type": "REGISTRY_ID", "identifier_value": "ABC-123"},
+            {"identifier_type": "MBS", "identifier_value": "110021933", "limit": 51},
+            {"subject_id": "../unsafe"},
+        ]
+        with patch("business_api._safe_urlopen") as call:
+            for kwargs in cases:
+                with self.subTest(kwargs=kwargs):
+                    with self.assertRaises(BusinessApiError):
+                        client.profile_by_identifier(**kwargs)
+            call.assert_not_called()
+
+    def test_typed_profile_selectors_encode_query_and_check_identity(self):
+        import json
+        from urllib.parse import parse_qs, urlsplit
+        payload = {
+            "data": {"identity": {
+                "subject_id": "fabric-sub-01",
+                "oib": "42358685803",
+                "identifiers": [
+                    {"identifier_type": "MBS", "identifier_value": "110021933", "source_id": "SUDREG"},
+                    {"identifier_type": "REGISTRY_ID", "identifier_value": "ABC-123", "source_id": "SUDREG"}
+                ]
+            }},
+            "meta": {"as_of": "2026-10-16T12:00:00Z", "redistribution_allowed": True,
+                     "provenance": [{"source_key": "SUDREG", "retrieved_at": "2026-10-16T11:00:00Z"}]}
+        }
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n): return json.dumps(payload).encode()
+        client = BusinessApiClient("https://example.org", "token")
+        for kwargs in [
+            {"oib": "42358685803"},
+            {"subject_id": "fabric-sub-01"},
+            {"identifier_type": "MBS", "identifier_value": "110021933"},
+            {"identifier_type": "REGISTRY_ID", "identifier_value": "ABC-123", "source_id": "SUDREG"},
+        ]:
+            with self.subTest(kwargs=kwargs):
+                with patch("business_api._safe_urlopen", return_value=Response()) as call:
+                    output = client.profile_by_identifier(**kwargs)
+                    query = parse_qs(urlsplit(call.call_args.args[0].full_url).query)
+                    self.assertEqual(query["limit"], ["20"])
+                    self.assertIn("identity", output["data"])
+
+    def test_profile_typed_identity_mismatch_is_rejected(self):
+        import json
+        payload = {
+            "data": {"identity": {
+                "subject_id": "fabric-sub-01",
+                "identifiers": [{"identifier_type": "MBS", "identifier_value": "110021933"}]
+            }},
+            "meta": {"as_of": "2026-10-16T12:00:00Z", "redistribution_allowed": True,
+                     "provenance": [{"source_key": "SUDREG", "retrieved_at": "2026-10-16T11:00:00Z"}]}
+        }
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n): return json.dumps(payload).encode()
+        client = BusinessApiClient("https://example.org", "token")
+        with patch("business_api._safe_urlopen", return_value=Response()):
+            with self.assertRaisesRegex(BusinessApiError, "PROFILE_IDENTITY_MISMATCH"):
+                client.profile_by_identifier(identifier_type="MBS", identifier_value="111111111")
+            with self.assertRaisesRegex(BusinessApiError, "PROFILE_IDENTITY_MISMATCH"):
+                client.profile_by_identifier(subject_id="fabric-sub-02")
+
     def test_missing_provenance_rejected(self):
         class Response:
             def __enter__(self): return self
