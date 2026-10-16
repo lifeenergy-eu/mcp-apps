@@ -30,3 +30,18 @@ The private adapter requires a parsed HTTPS hostname and rejects URL user inform
 - Both tools use the same private authenticated read contract and deny results that lack explicit redistribution clearance or valid provenance.
 - This is **not** a new CI/CRM UX, an independent company master, a direct P620 datastore connection or an external customer product.
 - No runtime installation or external-client activation is implied by GitHub source acceptance.
+
+## Product activation guard (2026-10-16)
+
+The server enforces `product_access.require_private_operator_mode()` **before**
+initializing OAuth. Current accepted settings are `MCP_AUTH_MODE=oauth_private`,
+`MCP_OAUTH_SCOPES` containing `business.read`,
+`BUSINESS_MCP_CLIENT_MODE=private_operator` (default), and
+`BUSINESS_MCP_PUBLIC_CLIENTS_ENABLED=false` (default).
+
+Any public/multi-tenant client mode fails closed. This guard is **not** tenant
+authorization, nor does it make a globally shared service token safe for
+external users. Tenant-scoped identity exchange and source-specific entitlements
+must be implemented and verified end-to-end before external product activation.
+The P620 source materializer must package `product_access.py`; source commits,
+CI success, and HMAC attestation do not constitute production activation.
