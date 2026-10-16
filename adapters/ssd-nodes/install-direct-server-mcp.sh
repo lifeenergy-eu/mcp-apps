@@ -125,7 +125,9 @@ TimeoutStartSec=90
 [Install]
 WantedBy=multi-user.target
 UNIT
-if [[ -f /etc/caddy/Caddyfile ]] && grep -Eq 'reverse_proxy|tls |import |^[[:space:]]*[a-zA-Z0-9.-]+\.[a-zA-Z]+' /etc/caddy/Caddyfile; then
+# Debian/Ubuntu's stock Caddyfile contains commented reverse_proxy examples.
+# Consider only uncommented directives when deciding whether a real site exists.
+if [[ -f /etc/caddy/Caddyfile ]] && grep -Ev '^[[:space:]]*(#|$)' /etc/caddy/Caddyfile | grep -Eq 'reverse_proxy|tls[[:space:]]|import[[:space:]]|^[[:space:]]*([a-zA-Z0-9.-]+\\.)+[a-zA-Z]{2,}'; then
  die "Existing custom Caddy configuration detected; review before replacing"
 fi
 cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.before-ssd-mcp 2>/dev/null || :
