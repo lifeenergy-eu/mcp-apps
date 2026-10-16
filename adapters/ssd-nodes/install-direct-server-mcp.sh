@@ -49,6 +49,10 @@ if [[ ! -e /var/lib/ssd-server-mcp/secrets/operator-password ]]; then
 fi
 cp -a "$SRC/packages/mcp_auth" "$BASE/packages/"
 python3 -m venv "$BASE/venv"
+# umask 077 protects new credentials, but the dedicated service user must traverse
+# the Python venv and imported package dirs. Grant read/traverse only to its group.
+chgrp -R ssd-mcp "$BASE/venv" "$BASE/packages"
+chmod -R g+rX "$BASE/venv" "$BASE/packages"
 "$BASE/venv/bin/pip" -q install --disable-pip-version-check -r "$SRC/apps/p620-diagnostics/requirements.txt" >>"$LOG" 2>&1
 install -m 0644 "$SRC/apps/p620-diagnostics/server.py" "$BASE/app/server.py"
 install -m 0644 "$SRC/apps/p620-diagnostics/server_admin/root_helper.py" "$BASE/root_helper.py"
