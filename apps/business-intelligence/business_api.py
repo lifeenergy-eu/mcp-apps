@@ -78,6 +78,11 @@ class BusinessApiClient:
                     or not isinstance(source.get("retrieved_at"), str)
                     or not source["retrieved_at"].strip()):
                 raise BusinessApiError("BUSINESS_API_SOURCE_TRAIL_REQUIRED")
+            # A permissive aggregate flag cannot override a restricted source.
+            # Preserve an explicit deny even when an upstream API has a bug.
+            if (source.get("redistribution_allowed") is False
+                    or source.get("rights_status") in ("DENIED", "RESTRICTED", "UNKNOWN")):
+                raise BusinessApiError("BUSINESS_API_SOURCE_RIGHTS_NOT_GRANTED")
         return result
 
     def company_by_oib(self, oib: str):
