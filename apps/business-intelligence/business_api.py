@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, build_opener
 from urllib.parse import quote, urlencode, urlsplit
@@ -106,11 +107,10 @@ class BusinessApiClient:
                 raise BusinessApiError("OIB_FORMAT_INVALID")
             params["oib"] = oib
         elif subject_id is not None:
-            if not isinstance(subject_id, str) or not __import__("re").fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", subject_id):
+            if not isinstance(subject_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", subject_id):
                 raise BusinessApiError("SUBJECT_ID_INVALID")
             params["subject_id"] = subject_id
         else:
-            import re
             kind = str(identifier_type or "").strip().upper()
             value = str(identifier_value or "").strip()
             if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", kind) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._:/-]{0,127}", value):
