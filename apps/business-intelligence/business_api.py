@@ -9,7 +9,7 @@ import json
 import os
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, build_opener
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import Request
 
 MAX_RESPONSE_BYTES = 524288
@@ -89,6 +89,56 @@ class BusinessApiClient:
         if len(oib) != 11 or not oib.isascii() or not oib.isdigit():
             raise BusinessApiError("OIB_FORMAT_INVALID")
         return self.get("/api/business/v1/companies/" + quote(oib, safe=""))
+
+    def profile_by_identifier(self, *, oib=None, subject_id=None,
+                              identifier_type=None, identifier_value=None,
+                              source_id=None, limit=20):
+        """Typed Fabric identity query via the *central* Business API, never P620 directly."""
+        selectors = sum((oib is not None, subject_id is not None,
+                         identifier_type is not None or identifier_value is not None))
+        if selectors != 1:
+            raise BusinessApiError("EXACTLY_ONE_IDENTIFIER_REQUIRED")
+        if type(limit) is not int or not 1 <= limit <= 50:
+            raise BusinessApiError("PROFILE_PAGE_LIMIT_INVALID")
+        params = {"limit": limit}
+        if oib is not None:
+            if not isinstance(oib, str) or len(oib) != 11 or not oib.isascii() or not oib.isdigit():
+                raise BusinessApiError("OIB_FORMAT_INVALID")
+            params["oib"] = oib
+        elif subject_id is not None:
+            if not isinstance(subject_id, str) or not __import__("re").fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", subject_id):
+                raise BusinessApiError("SUBJECT_ID_INVALID")
+            params["subject_id"] = subject_id
+        else:
+            import re
+            kind = str(identifier_type or "").strip().upper()
+            value = str(identifier_value or "").strip()
+            if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", kind) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 ._:/-]{0,127}", value):
+                raise BusinessApiError("TYPED_IDENTIFIER_INVALID")
+            params.update(identifier_type=kind, identifier_value=value)
+            if kind not in {"OIB", "MBS", "MB", "VAT_ID", "LEI"} and not source_id:
+                raise BusinessApiError("SOURCE_SCOPE_REQUIRED")
+            if source_id is not None:
+                if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", source_id):
+                    raise BusinessApiError("SOURCE_SCOPE_INVALID")
+                params["source_id"] = source_id.upper()
+        result = self.get("/api/business/v1/profiles?" + urlencode(params))
+        identity = result.get("data", {}).get("identity")
+        if not isinstance(identity, dict):
+            raise BusinessApiError("PROFILE_IDENTITY_MISSING")
+        if "oib" in params and identity.get("oib") != params["oib"]:
+            raise BusinessApiError("PROFILE_IDENTITY_MISMATCH")
+        if "subject_id" in params and identity.get("subject_id") != params["subject_id"]:
+            raise BusinessApiError("PROFILE_IDENTITY_MISMATCH")
+        if "identifier_type" in params and not any(
+            isinstance(row, dict)
+            and row.get("identifier_type", "").upper() == params["identifier_type"]
+            and row.get("identifier_value") == params["identifier_value"]
+            and (not params.get("source_id") or row.get("source_id", "").upper() == params["source_id"])
+            for row in (identity.get("identifiers") or [])
+        ):
+            raise BusinessApiError("PROFILE_IDENTITY_MISMATCH")
+        return result
 
     def company_source_provenance_by_oib(self, oib: str):
         """Return only the verified data-source trail; enforce the same rights gate."""
