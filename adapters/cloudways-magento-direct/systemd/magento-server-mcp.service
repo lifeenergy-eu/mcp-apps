@@ -10,7 +10,10 @@ ExecStart=%h/.project-brain/control-plane/controlled-execution-mcp/venv/bin/pyth
 Restart=on-failure
 RestartSec=5
 UMask=0077
-NoNewPrivileges=true
+# Cron's setgid(crontab) helper needs privilege transition for the SAME login user.
+# This service remains user-scoped; no sudo/root is granted by this setting.
+# This trade-off is explicitly required for Cloudways user-crontab administration.
+NoNewPrivileges=false
 
 [Install]
 WantedBy=default.target
