@@ -1,0 +1,28 @@
+name: Business Intelligence MCP source tests
+on:
+  push:
+    paths:
+      - 'apps/business-intelligence/**'
+      - 'packages/mcp_auth/**'
+      - '.github/workflows/business-intelligence-mcp-test.yml'
+  pull_request:
+    paths:
+      - 'apps/business-intelligence/**'
+      - 'packages/mcp_auth/**'
+      - '.github/workflows/business-intelligence-mcp-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  business-mcp-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run source-only API and protocol contract tests
+        run: python -m unittest discover -s apps/business-intelligence -p 'test_*.py' -v
+      - name: Validate product source syntax
+        run: python -m compileall -q apps/business-intelligence
