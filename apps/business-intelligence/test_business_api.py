@@ -88,6 +88,30 @@ class ApiAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(BusinessApiError, "SOURCE_TRAIL_REQUIRED"):
                 client.company_by_oib("12345678901")
 
+    def test_per_source_restriction_overrides_aggregate_permission(self):
+        import json
+        class Response:
+            def __init__(self, source): self.source = source
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, n):
+                return json.dumps({
+                    "data": {"oib": "12345678901"},
+                    "meta": {"as_of": "2026-10-16T00:00:00Z",
+                             "redistribution_allowed": True,
+                             "provenance": [self.source]}
+                }).encode("utf-8")
+        base = {"source_key": "FIXTURE", "retrieved_at": "2026-10-16T00:00:00Z"}
+        client = BusinessApiClient("https://example.org", "token")
+        for restricted in ({"redistribution_allowed": False},
+                           {"rights_status": "DENIED"},
+                           {"rights_status": "RESTRICTED"},
+                           {"rights_status": "UNKNOWN"}):
+            with self.subTest(restricted=restricted):
+                with patch("business_api._safe_urlopen", return_value=Response({**base, **restricted})):
+                    with self.assertRaisesRegex(BusinessApiError, "SOURCE_RIGHTS_NOT_GRANTED"):
+                        client.company_by_oib("12345678901")
+
     def test_missing_provenance_rejected(self):
         class Response:
             def __enter__(self): return self
