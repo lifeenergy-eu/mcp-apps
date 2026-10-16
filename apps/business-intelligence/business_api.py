@@ -30,17 +30,22 @@ class BusinessApiError(RuntimeError):
 
 
 class BusinessApiClient:
-    def __init__(self, base_url: str, token: str):
+    def __init__(self, base_url: str, token: str, route_prefix: str = '/ci-api/business/v1'):
         parts = urlsplit(base_url)
         if (parts.scheme != "https" or not parts.hostname or parts.username is not None
                 or parts.password is not None or parts.query or parts.fragment or not token):
             raise BusinessApiError("HTTPS_BASE_URL_AND_SERVICE_TOKEN_REQUIRED")
+        if route_prefix not in ('/ci-api/business/v1', '/api/business/v1'):
+            raise BusinessApiError("BUSINESS_API_ROUTE_PREFIX_NOT_ALLOWED")
         self.base_url = base_url.rstrip("/")
         self.token = token
+        self.route_prefix = route_prefix
 
     @classmethod
     def from_environment(cls):
-        return cls(os.environ.get("BUSINESS_API_BASE_URL", ""), os.environ.get("BUSINESS_API_SERVICE_TOKEN", ""))
+        return cls(os.environ.get("BUSINESS_API_BASE_URL", ""),
+                   os.environ.get("BUSINESS_API_SERVICE_TOKEN", ""),
+                   os.environ.get("BUSINESS_API_ROUTE_PREFIX", "/ci-api/business/v1"))
 
     def get(self, path: str):
         request = Request(
@@ -89,7 +94,7 @@ class BusinessApiClient:
     def company_by_oib(self, oib: str):
         if len(oib) != 11 or not oib.isascii() or not oib.isdigit():
             raise BusinessApiError("OIB_FORMAT_INVALID")
-        return self.get("/api/business/v1/companies/" + quote(oib, safe=""))
+        return self.get(self.route_prefix + "/companies/" + quote(oib, safe=""))
 
     def profile_by_identifier(self, *, oib=None, subject_id=None,
                               identifier_type=None, identifier_value=None,
@@ -122,7 +127,7 @@ class BusinessApiClient:
                 if not isinstance(source_id, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", source_id):
                     raise BusinessApiError("SOURCE_SCOPE_INVALID")
                 params["source_id"] = source_id.upper()
-        result = self.get("/api/business/v1/profiles?" + urlencode(params))
+        result = self.get(self.route_prefix + "/profiles?" + urlencode(params))
         identity = result.get("data", {}).get("identity")
         if not isinstance(identity, dict):
             raise BusinessApiError("PROFILE_IDENTITY_MISSING")
