@@ -23,8 +23,9 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from mcp_auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
+from deploy_lifecycle_guard import guard as guard_deployment_result
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 RO = {"readOnlyHint": True, "openWorldHint": False}
 WRITE = {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False}
 
@@ -123,8 +124,8 @@ def connector_health() -> dict[str, Any]:
     body["oauth_scopes"] = OAUTH_SCOPES
     body["mcp_path"] = "/mcp"
     body["primary_execution_tool"] = "brain_execute"
-    body["public_tools"] = ["brain_source_mutate", "brain_execute", "brain_operation_status"]
-    body["public_execution_tool_count"] = 3
+    body["public_tools"] = ["brain_source_mutate", "brain_execute", "brain_operation_status", "brain_develop"]
+    body["public_execution_tool_count"] = 4
     body["legacy_write_tools"] = "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE"
     body["canonical_deploy_policy_ref"] = "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1.canonical_delivery_pipeline_v1"
     return body
@@ -200,7 +201,7 @@ def brain_source_mutate(
 @mcp.tool(annotations=RO)
 def brain_operation_status(operation_id: str) -> dict[str, Any]:
     """Read a durable Run Core receipt or fixed Brain self-deploy operation."""
-    return helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": operation_id})
+    return guard_deployment_result(helper_call("PUBLIC_OPERATION_STATUS", {"operation_id": operation_id}))
 
 
 @mcp.tool(annotations=WRITE)
@@ -210,10 +211,10 @@ def brain_execute(repository: str, commit_sha: str) -> dict[str, Any]:
     Brain resolves the internal execution plan, targets, prerequisites and
     verification. No task_id, intent_key, runner or steps are caller inputs.
     """
-    return helper_call("RUN_REGISTERED_TASK", {
+    return guard_deployment_result(helper_call("RUN_REGISTERED_TASK", {
         "task": {"repository": repository, "commit_sha": commit_sha},
         "wait_seconds": 8,
-    })
+    }))
 
 
 def _verified_github_direct_source(repository: str, commit_sha: str,
@@ -494,7 +495,7 @@ def brain_develop(repository: str, intent: str,
         raise RuntimeError("DEV_BRAIN_DEPLOY_RESULT_INVALID")
     result["development_entrypoint"] = "brain_develop"
     result["requested_source_sha"] = existing_sha
-    return result
+    return guard_deployment_result(result)
 
 @mcp.tool(annotations=RO)
 def execution_status(request_handle: str) -> dict[str, Any]:
