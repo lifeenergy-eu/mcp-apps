@@ -49,6 +49,11 @@ done
 python3 -m venv "$ROOT/venv"
 "$ROOT/venv/bin/python" -m pip --disable-pip-version-check install --no-cache-dir \
   'mcp==1.26.0' 'uvicorn==0.54.0' 'python-multipart==0.0.32'
+# Bootstrap uses umask 077 for secrets. Source and virtualenv are public-code only;
+# ensure the dedicated non-root service user can traverse and import them.
+chmod -R a+rX "$ROOT/source" "$ROOT/venv"
+runuser -u "$USER_ID" -- test -r "$ROOT/source/packages/mcp_auth/private_oauth.py"
+runuser -u "$USER_ID" -- test -x "$ROOT/venv/bin/python"
 
 if [ ! -e "$PW_FILE" ]; then
     python3 - "$PW_FILE" <<'PY'
