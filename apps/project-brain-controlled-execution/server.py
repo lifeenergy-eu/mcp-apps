@@ -333,6 +333,27 @@ def brain_develop(repository: str, intent: str,
     For an existing signed SHA, reuse the active Brain deploy route.
     Brain owns the target, execution, verification, and durable receipt.
     """
+    # D5: Delegate through the EXISTING Brain helper only when independently
+    # verified production adapter activation has been explicitly enabled.
+    # No new MCP endpoint, runner, relay or caller-selectable transport.
+    if os.environ.get("PB_DEVELOPMENT_BACKEND_ENABLED") == "1":
+        if checkpoint is not None:
+            return {"status": "FAIL_CLOSED",
+                    "failure_code": "DEV_COORDINATOR_CHECKPOINT_IS_SERVER_OWNED",
+                    "production_accepted": False}
+        if (changes is None) == (existing_sha is None):
+            return {"status": "FAIL_CLOSED",
+                    "failure_code": "DEV_EXACTLY_ONE_SOURCE_MODE_REQUIRED",
+                    "production_accepted": False}
+        payload = {"schema_version": "1.0", "repository": repository,
+                   "intent": intent}
+        if existing_sha is not None:
+            payload["existing_sha"] = existing_sha
+        else:
+            payload["changes"] = changes
+        # The helper itself requires its activation flag and an independently
+        # verified protected runtime registry. Disabled/missing stages FAIL_CLOSED.
+        return guard_deployment_result(helper_call("PUBLIC_DEVELOPMENT", payload))
     if not isinstance(intent, str) or not intent.strip() or len(intent) > 1000:
         return {"status": "FAIL_CLOSED", "failure_code": "DEV_INTENT_INVALID"}
     if changes is None and existing_sha is None:
