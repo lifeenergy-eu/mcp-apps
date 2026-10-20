@@ -88,6 +88,9 @@ class WordPressTargetLocalGuardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             dbdir = Path(home) / "state"
             dbdir.mkdir(mode=0o755)
+            # umask=0077 under systemd otherwise silently creates a secure 0700 dir.
+            # Explicitly make the fixture insecure; production validation must reject it.
+            os.chmod(dbdir, 0o755)
             with patch.object(target, "NONCE_FILE", dbdir / "tickets.sqlite3"):
                 with self.assertRaisesRegex(target.TargetLocalDenied, "NONCE_STORE_UNAVAILABLE"):
                     target.consume_once("nonce_fixture_0001", 2200, "RUN-00000001", "STEP-00000001")
