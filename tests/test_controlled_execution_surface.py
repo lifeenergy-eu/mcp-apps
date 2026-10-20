@@ -25,12 +25,12 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
     def test_brain_execute_is_intent_only(self):
         fn = next(node for node in self.tree.body
                   if isinstance(node, ast.FunctionDef) and node.name == "brain_execute")
-        self.assertEqual([arg.arg for arg in fn.args.args], ["task", "wait_seconds"])
+        self.assertEqual([arg.arg for arg in fn.args.args], ["repository", "commit_sha"])
         self.assertIn("RUN_REGISTERED_TASK", ast.get_source_segment(self.source, fn))
 
     def test_default_tool_discovery_is_single_mutation_ingress(self):
         self.assertNotIn('PB_EXPOSE_LEGACY_WRITE_TOOLS', self.source)
-        self.assertIn('tool.name == "brain_execute"', self.source)
+        self.assertIn('tool.name in allowed', self.source)
         # Existing typed workflow functions remain present for compatibility.
         names = {node.name for node in self.tree.body if isinstance(node, ast.FunctionDef)}
         self.assertTrue({"deploy_registered_source", "run_registered_application_workflow",
@@ -48,7 +48,7 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
                     and any(isinstance(t, ast.Name) and t.id == "tools" for t in node.targets)
                     and isinstance(node.value, ast.ListComp)]
         self.assertTrue(filtered, "Public discovery must restrict legacy write tools")
-        self.assertIn('tool.name == "brain_execute"', self.source)
+        self.assertIn('tool.name in allowed', self.source)
 
     def test_legacy_write_tools_handoff_without_helper_execution(self):
         actions = {
