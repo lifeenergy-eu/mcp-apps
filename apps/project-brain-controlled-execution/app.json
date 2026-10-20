@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "app_id": "PROJECT-BRAIN-CONTROLLED-EXECUTION",
   "name": "Project Brain Controlled Execution",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "status": "SOURCE_CANDIDATE_PENDING_EXACT_SHA_RUNTIME_ROLLOUT",
   "transport": "streamable-http",
   "path": "/mcp",
