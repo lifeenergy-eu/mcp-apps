@@ -13,5 +13,6 @@ class D5SourceIdentity(unittest.TestCase):
     def test_development_delegates_to_original_helper(self):
         source=SOURCE.read_text(encoding="utf-8")
         self.assertIn('helper_call("PUBLIC_DEVELOPMENT", payload)',source)
+        self.assertIn("PB_DEVELOPMENT_BACKEND_ENABLED",source)
 if __name__=="__main__":
     unittest.main()
