@@ -14,5 +14,6 @@ class D5SourceIdentity(unittest.TestCase):
         source=SOURCE.read_text(encoding="utf-8")
         self.assertIn('helper_call("PUBLIC_DEVELOPMENT", payload)',source)
         self.assertIn("PB_DEVELOPMENT_BACKEND_ENABLED",source)
+        self.assertIn("DEV_COORDINATOR_CHECKPOINT_IS_SERVER_OWNED",source)
 if __name__=="__main__":
     unittest.main()
