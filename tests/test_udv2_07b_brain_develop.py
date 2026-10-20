@@ -3,6 +3,7 @@
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import unittest
@@ -17,7 +18,7 @@ def load_handler():
     module = ast.Module(body=[
         ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0),
         target], type_ignores=[])
-    env = {"hashlib": hashlib, "json": json, "re": re,
+    env = {"hashlib": hashlib, "json": json, "os": os, "re": re,
            "_verified_github_direct_source": lambda repository, sha, changes, request_id: "PASS",
            "_dev_signed_head": lambda repository, sha, request_id: "c" * 40,
            "_dev_running_sha": lambda sha: True,
