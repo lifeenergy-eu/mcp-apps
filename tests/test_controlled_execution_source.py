@@ -32,7 +32,7 @@ class ControlledExecutionSourceTests(unittest.TestCase):
         self.assertIn('def run_registered_task(task: dict[str, Any], wait_seconds: int = 8)', source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', source)
         self.assertIn('return _legacy_handoff("RUN_REGISTERED_TASK")', source)
-        self.assertIn('tool.name == "brain_execute"', source)
+        self.assertIn('tool.name in allowed', source)
         self.assertNotIn("shell=True", source)
 
     def test_server_uses_one_fixed_helper_without_shell(self) -> None:
