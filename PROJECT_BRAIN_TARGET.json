@@ -1,0 +1,9 @@
+{
+  "schema": "project-brain-target/v2",
+  "repository": "lifeenergy-eu/mcp-apps",
+  "default_branch": "main",
+  "component_refs": [],
+  "brain_authority": "registry/repository-registry-v1.json",
+  "system_id": "SYSTEM-LOCAL-AI",
+  "source_identity_only": true
+}
