@@ -31,6 +31,7 @@ SOURCE = "lifeenergy-eu/mcp-apps"
 KEYDIR = Path("/etc/project-brain/server-mcp")
 ISSUER = KEYDIR / "run-core-issuer-public.pem"
 HOST_SIGNER = KEYDIR / "receipt-signing-private.pem"
+PROFILE_TARGET = KEYDIR / "profile.json"
 STATE = Path("/var/lib/project-brain/server-mcp-release")
 FILES = {"server.py":"server", "root_helper.py":"helper",
          "admin_executor.py":"executor"}
@@ -224,7 +225,7 @@ def run(ticket,source):
         require(not receipt_path.is_symlink(),"UNIFIED_RECEIPT_PATH_UNSAFE")
         require(not receipt_path.exists(),"UNIFIED_TICKET_REPLAY_REJECTED")
         destinations={name:Path(binding[tag]) for name,tag in FILES.items()}
-        destinations[binding["profile"]]=Path("/etc/project-brain/server-mcp/profile.json")
+        destinations[binding["profile"]]=PROFILE_TARGET
         observed_before={}
         for name,p in destinations.items():
             if p.exists():
