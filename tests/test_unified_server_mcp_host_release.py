@@ -89,6 +89,36 @@ class SignedReleaseTests(unittest.TestCase):
         ticket=self.ticket()
         with patch.dict(mod.TARGETS,{"SERVER-SSD-NODES-BRAIN":self.binding}):
             self.assertEqual(len(mod.source_files(ticket,self.source)),4)
+    def test_rollback_without_signed_reference_rejected(self):
+        ticket=self.ticket("rollback_v1")
+        with self.assertRaises(mod.ReleaseDenied):
+            mod.verify_ticket(ticket,self.pub)
+
+    @unittest.skipUnless(os.geteuid()==0,"root-only physical release integration")
+    def test_service_cutover_failure_restores_original_files(self):
+        ticket=self.ticket()
+        original_run=subprocess.run
+        def intercept(argv,*args,**kwargs):
+            if argv[:2]==["/usr/bin/systemctl","restart"]:
+                return subprocess.CompletedProcess(argv,0,b"",b"")
+            return original_run(argv,*args,**kwargs)
+        with patch.dict(mod.TARGETS,{"SERVER-SSD-NODES-BRAIN":self.binding}),\
+             patch.object(mod,"ISSUER",self.pub),\
+             patch.object(mod,"HOST_SIGNER",self.priv),\
+             patch.object(mod,"PROFILE_TARGET",self.profile_target),\
+             patch.object(mod,"STATE",self.state),\
+             patch.object(mod,"trusted",side_effect=lambda x,*args:x),\
+             patch.object(mod.socket,"gethostname",return_value="unit-test-host"),\
+             patch.object(mod,"service_active",return_value=True),\
+             patch.object(mod,"oauth_negative",return_value=True),\
+             patch.object(mod,"await_health",return_value=False),\
+             patch.object(mod.subprocess,"run",side_effect=intercept):
+            with self.assertRaises(mod.ReleaseDenied):
+                mod.run(ticket,self.source)
+            self.assertEqual((self.root/"active"/"server.py").read_text(),"OLD_SOURCE_server.py\\n")
+            self.assertFalse(self.profile_target.exists())
+            self.assertFalse((self.state/(ticket["ticket_id"]+".json")).exists())
+
     @unittest.skipUnless(os.geteuid()==0,"root-only physical release integration")
     def test_signed_install_and_independent_readback_without_live_services(self):
         ticket=self.ticket()
