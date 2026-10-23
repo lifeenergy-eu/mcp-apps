@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "contract": "UNIFIED_SERVER_MCP_SOURCE_BINDINGS_V1",
+  "status": "SOURCE_STAGING_ONLY_NOT_ACTIVE",
+  "source_package": "packages/universal_server_mcp",
+  "profile_target_path": "/etc/project-brain/server-mcp/profile.json",
+  "runtime_owner": "PROJECT-BRAIN-CONTROL-PLANE",
+  "requirements": [
+    "Existing registered source-managed Brain Run Core release admission",
+    "Pinned exact mcp-apps source SHA and source-owner approval",
+    "Root-owned profile file and registered backend binding before service switch",
+    "Each host: isolated backup, syntax and 19-tool parity, service restart, authenticated read/write/readback",
+    "Rollback to previous verified service code if any host acceptance fails"
+  ],
+  "runtime_mutation_authorized": false,
+  "bindings": [
+    {
+      "target_id": "SERVER-SSD-NODES-BRAIN",
+      "service": "ssd-server-mcp.service",
+      "server_path": "/opt/ssd-server-mcp/app/server.py",
+      "helper_path": "/opt/ssd-server-mcp/root_helper.py",
+      "executor_path": "/opt/ssd-server-mcp/admin_executor.py"
+    },
+    {
+      "target_id": "SERVER-NETCUP-MAGENTO",
+      "service": "netcup-magento-mcp.service",
+      "server_path": "/opt/netcup-magento-mcp/server.py",
+      "helper_path": "/opt/netcup-magento-mcp/root_helper.py",
+      "executor_path": "/opt/netcup-magento-mcp/admin_executor.py"
+    },
+    {
+      "target_id": "SERVER-NETCUP-WORDPRESS",
+      "service": "netcup-migration-mcp.service",
+      "server_path": "/opt/netcup-migration-mcp/server.py",
+      "helper_path": "/opt/netcup-migration-mcp/root_helper.py",
+      "executor_path": "/opt/netcup-migration-mcp/admin_executor.py"
+    },
+    {
+      "target_id": "SERVER-P620-WSL",
+      "service": "project-brain-p620-mcp.service",
+      "server_path": "/opt/p620-server-mcp/app/server.py",
+      "helper_path": "/opt/p620-server-mcp/root_helper.py",
+      "executor_path": "/opt/p620-server-mcp/admin_executor.py"
+    }
+  ]
+}
