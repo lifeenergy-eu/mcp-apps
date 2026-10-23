@@ -125,7 +125,7 @@ class SignedReleaseTests(unittest.TestCase):
             restored=mod.run(rollback,self.source)
             self.assertEqual(restored["status"],"PASS")
             self.assertEqual(restored["action"],"rollback_v1")
-            self.assertEqual((self.root/"active"/"server.py").read_text(),"OLD_SOURCE_server.py\\n")
+            self.assertEqual((self.root/"active"/"server.py").read_text(),"OLD_SOURCE_server.py\n")
             self.assertFalse(self.profile_target.exists())
 
 if __name__=="__main__":
