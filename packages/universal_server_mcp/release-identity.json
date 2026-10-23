@@ -11,10 +11,13 @@
   "source_files": [
     "server.py",
     "admin_executor.py",
-    "root_helper.py"
+    "root_helper.py",
+    "host_release.py"
   ],
   "tested_hosts": 4,
-  "tests_per_host": 7,
-  "release_scope": "SOURCE_REGISTRATION_NO_RUNTIME_SWITCH",
-  "production_deploy_authorized": false
+  "tests_per_host": 16,
+  "release_scope": "SIGNED_RUN_CORE_TARGET_BOUND_EXTERNAL_CONTINUATION",
+  "production_deploy_authorized": false,
+  "physical_execution_requires": "LIVE_BRAIN_RUN_CORE_SIGNED_ADMISSION_AND_TARGET_SCOPED_TICKET",
+  "host_receipt": "INDEPENDENT_ED25519_SIGNED_READBACK_AND_ROLLBACK"
 }
