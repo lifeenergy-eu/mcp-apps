@@ -1,0 +1,7 @@
+{
+  "target_id": "SERVER-NETCUP-WORDPRESS",
+  "display_name": "Netcup Wordpress Server MCP",
+  "root_helper": "/opt/netcup-migration-mcp/root_helper.py",
+  "auth_packages": "/opt/project-brain/mcp-apps/releases/c6506b90193a2685d9b5dd98607a34c6b3490b82/packages",
+  "bind_port": 18793
+}
