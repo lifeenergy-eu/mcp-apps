@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Canonical general-purpose Server Management MCP; host identity is pinned in root-owned profile."""
+from __future__ import annotations
+import base64
+import json
+import os
+from pathlib import Path
+import secrets
+import subprocess
+import sys
+from typing import Any
+
+HERE=Path(__file__).resolve().parent
+PROFILE_PATH=Path('/etc/project-brain/server-mcp/profile.json')
+def load_profile():
+    if not PROFILE_PATH.is_file() or PROFILE_PATH.is_symlink():
+        raise RuntimeError('SERVER_MCP_PROFILE_MISSING')
+    st=PROFILE_PATH.stat()
+    if st.st_uid!=0 or st.st_mode & 0o022:
+        raise RuntimeError('SERVER_MCP_PROFILE_UNTRUSTED')
+    data=json.loads(PROFILE_PATH.read_text())
+    required={'target_id','display_name','root_helper','auth_packages','bind_port'}
+    if not isinstance(data,dict) or set(data)!=required:
+        raise RuntimeError('SERVER_MCP_PROFILE_INVALID')
+    if data['target_id'] not in {'SERVER-SSD-NODES-BRAIN','SERVER-NETCUP-MAGENTO','SERVER-NETCUP-WORDPRESS','SERVER-P620-WSL'}:
+        raise RuntimeError('SERVER_MCP_UNKNOWN_TARGET')
+    if not isinstance(data['display_name'],str) or len(data['display_name'])>80:
+        raise RuntimeError('SERVER_MCP_DISPLAY_INVALID')
+    for name in ('root_helper','auth_packages'):
+        p=Path(data[name])
+        if not p.is_absolute() or '..' in p.parts or not p.exists():
+            raise RuntimeError('SERVER_MCP_RUNTIME_PATH_UNAVAILABLE')
+    if not isinstance(data['bind_port'],int) or not 1024<=data['bind_port']<=65535:
+        raise RuntimeError('SERVER_MCP_PORT_INVALID')
+    return data
+PROFILE=load_profile()
+sys.path.insert(0, PROFILE['auth_packages'])
+import uvicorn
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from mcp_auth import AUTH_MODE, AUTH_PROVIDER, AUTH_SETTINGS, OAUTH_SCOPES, oauth_login_handler
+
+HOST='127.0.0.1'
+PORT=int(os.environ.get('MCP_BIND_PORT',str(PROFILE['bind_port'])))
+PUBLIC_HOST=os.environ['MCP_PUBLIC_HOST']
+assert PORT == PROFILE['bind_port'], 'INVALID_PORT'
+assert PUBLIC_HOST and '/' not in PUBLIC_HOST and ':' not in PUBLIC_HOST, 'INVALID_HOST'
+assert AUTH_MODE == 'oauth_private', 'PRIVATE_OAUTH_REQUIRED'
+assert OAUTH_SCOPES == ['control.execute'], 'OAUTH_SCOPE_MISMATCH'
+HELPER=PROFILE['root_helper']
+MCP=FastMCP(PROFILE['display_name'],
+    instructions='General Server Management MCP: authenticated target-local read/write administration only. Not a Brain deploy or execution gateway. Never output secrets.',
+    host=HOST, port=PORT, streamable_http_path='/mcp',stateless_http=True,json_response=True,
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=True,
+        allowed_hosts=['localhost:*','127.0.0.1:*',PUBLIC_HOST,f'{PUBLIC_HOST}:*'],
+        allowed_origins=['http://localhost:*','http://127.0.0.1:*',f'https://{PUBLIC_HOST}',f'https://{PUBLIC_HOST}:*']),
+    auth=AUTH_SETTINGS,auth_server_provider=AUTH_PROVIDER)
+MCP.custom_route('/oauth/login',methods=['GET','POST'],include_in_schema=False)(oauth_login_handler)
+
+RO={'readOnlyHint':True,'openWorldHint':False}
+WR={'readOnlyHint':False,'destructiveHint':True,'openWorldHint':False}
+
+def invoke(op: str, **kw: Any) -> dict[str,Any]:
+    request={'operation':op,'request_id':'MIG-'+secrets.token_hex(20),**kw}
+    try:
+        result=subprocess.run(['/usr/bin/sudo','-n','/usr/bin/python3','-I',HELPER],
+            input=json.dumps(request),text=True,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+            timeout=140,check=False,env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin'})
+        if len(result.stdout)>100000: return {'status':'ERROR','code':'OUTPUT_TOO_LARGE'}
+        output=json.loads(result.stdout)
+        return output if isinstance(output,dict) else {'status':'ERROR','code':'INVALID_REPLY'}
+    except (OSError,ValueError,subprocess.TimeoutExpired):
+        return {'status':'ERROR','code':'ROOT_HELPER_FAILURE'}
+
+@MCP.tool(annotations=RO)
+def connector_health()->dict[str,Any]:
+    """Direct private read and write Server Management MCP."""
+    return {'target_id':PROFILE['target_id'],'transport':'streamable-http','path':'/mcp',
+            'filesystem_root':'/','scope':'control.execute','temporary':False,'host_bind':'127.0.0.1',
+            'root_helper':HELPER,'enabled':True,'display_name':PROFILE['display_name'],'read_write':True}
+
+@MCP.tool(annotations=WR)
+def run_command(argv:list[str],cwd:str='/',timeout_seconds:int=60)->dict[str,Any]:
+    """Execute argv directly on target host as root, with bounded output and timeout. Permanent direct server administration."""
+    return invoke('run',argv=argv,cwd=cwd,timeout_seconds=timeout_seconds)
+
+@MCP.tool(annotations=WR)
+def write_file(path:str,content_base64:str,mode:int=384)->dict[str,Any]:
+    """Atomically write binary file at absolute path under target host /; content must be base64."""
+    return invoke('write_file',path=path,data_base64=content_base64,mode=mode)
+
+@MCP.tool(annotations=WR)
+def create_directory(path:str,parents:bool=True,exist_ok:bool=True)->dict[str,Any]:
+    """Create directory or directories under target host /."""
+    return invoke('mkdir',path=path,parents=parents,exist_ok=exist_ok)
+
+@MCP.tool(annotations=WR)
+def remove_path(path:str,recursive:bool=False)->dict[str,Any]:
+    """Remove file or directory under target host /. Destructive operation."""
+    return invoke('remove',path=path,recursive=recursive)
+
+@MCP.tool(annotations=WR)
+def change_permissions(path:str,mode:int)->dict[str,Any]:
+    """Change chmod mode on target host path."""
+    return invoke('chmod',path=path,mode=mode)
+
+
+# Read tools are convenience wrappers over the existing authenticated root helper.
+# Every result is bounded by its output limit and shares the same fixed target host target.
+@MCP.tool(annotations=RO)
+def system_info()->dict[str,Any]:
+    """Read target host OS, uptime, CPU, memory and hostname."""
+    return invoke('run',argv=['/usr/bin/hostnamectl','status'],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def disk_usage()->dict[str,Any]:
+    """Read filesystem usage."""
+    return invoke('run',argv=['/usr/bin/df','-hT'],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def service_status(units:list[str])->dict[str,Any]:
+    """Read systemd state of explicitly specified service units."""
+    if not units or len(units)>20 or any(not isinstance(u,str) or not u.replace('@','').replace('.','').replace('-','').replace('_','').isalnum() for u in units):
+        return {'status':'ERROR','code':'INVALID_UNITS'}
+    return invoke('run',argv=['/usr/bin/systemctl','show',*units,'--property=Id,LoadState,ActiveState,SubState,UnitFileState','--no-pager'],timeout_seconds=20)
+
+@MCP.tool(annotations=RO)
+def journal_read(unit:str,lines:int=80)->dict[str,Any]:
+    """Read recent journal for one explicitly named unit, without secret env files."""
+    if not isinstance(unit,str) or not unit.replace('@','').replace('.','').replace('-','').replace('_','').isalnum() or not 1<=lines<=300:
+        return {'status':'ERROR','code':'INVALID_JOURNAL_ARGUMENTS'}
+    return invoke('run',argv=['/usr/bin/journalctl','-u',unit,'-n',str(lines),'--no-pager','--output=short-iso'],timeout_seconds=20)
+
+@MCP.tool(annotations=RO)
+def process_list()->dict[str,Any]:
+    """Read bounded active process list."""
+    return invoke('run',argv=['/usr/bin/ps','-eo','pid,user,stat,comm,%cpu,%mem','--sort=-%cpu'],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def socket_list()->dict[str,Any]:
+    """Read listening TCP and UDP ports."""
+    return invoke('run',argv=['/usr/bin/ss','-lntup'],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def file_stat(path:str)->dict[str,Any]:
+    """Read filesystem metadata, without revealing file contents."""
+    if not isinstance(path,str) or not path.startswith('/') or '\\x00' in path:
+        return {'status':'ERROR','code':'INVALID_PATH'}
+    return invoke('run',argv=['/usr/bin/stat','--',path],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def dir_list(path:str)->dict[str,Any]:
+    """Read a directory listing."""
+    if not isinstance(path,str) or not path.startswith('/') or '\\x00' in path:
+        return {'status':'ERROR','code':'INVALID_PATH'}
+    return invoke('run',argv=['/usr/bin/ls','-la','--',path],timeout_seconds=15)
+
+
+def _readable_path(path:str)->bool:
+    if not isinstance(path,str) or not path.startswith('/') or '\\x00' in path:
+        return False
+    p=Path(path).resolve(strict=False)
+    blocked=('/etc/shadow','/etc/gshadow','/etc/project-brain/secrets','/root',
+             '/etc/ssl/private','/etc/project-brain/mcp')
+    return not any(str(p)==x or str(p).startswith(x+'/') for x in blocked)
+
+@MCP.tool(annotations=RO)
+def file_read(path:str,lines:int=100)->dict[str,Any]:
+    """Read bounded non-secret text files; credential paths denied."""
+    if not _readable_path(path) or not 1<=lines<=300:
+        return {'status':'ERROR','code':'PATH_OR_LINES_DENIED'}
+    return invoke('run',argv=['/usr/bin/head','-n',str(lines),'--',path],timeout_seconds=15)
+
+@MCP.tool(annotations=RO)
+def file_find(root:str,name:str,max_depth:int=3)->dict[str,Any]:
+    """Find file names under an explicit non-secret directory."""
+    if not _readable_path(root) or not isinstance(name,str) or not name or '/' in name or not 1<=max_depth<=5:
+        return {'status':'ERROR','code':'INVALID_FIND'}
+    return invoke('run',argv=['/usr/bin/find',root,'-maxdepth',str(max_depth),'-name',name,'-print'],timeout_seconds=20)
+
+@MCP.tool(annotations=RO)
+def hash_file(path:str)->dict[str,Any]:
+    """Compute SHA256 for non-secret file."""
+    if not _readable_path(path):
+        return {'status':'ERROR','code':'PATH_DENIED'}
+    return invoke('run',argv=['/usr/bin/sha256sum','--',path],timeout_seconds=30)
+
+@MCP.tool(annotations=RO)
+def git_read(repository_path:str,operation:str='status')->dict[str,Any]:
+    """Read Git repository status or HEAD, never mutate Git."""
+    if not _readable_path(repository_path) or operation not in ('status','head','remote'):
+        return {'status':'ERROR','code':'INVALID_GIT_READ'}
+    args={'status':['status','--short'],'head':['rev-parse','HEAD'],'remote':['remote','-v']}[operation]
+    return invoke('run',argv=['/usr/bin/git','-C',repository_path,*args],timeout_seconds=20)
+
+@MCP.tool(annotations=RO)
+def sqlite_read_only(path:str,query:str)->dict[str,Any]:
+    """Read SQLite data through SELECT/WITH only."""
+    if not _readable_path(path) or not isinstance(query,str) or len(query)>4000 or not query.lstrip().lower().startswith(('select ','with ')):
+        return {'status':'ERROR','code':'SQL_READ_ONLY_REQUIRED'}
+    return invoke('run',argv=['/usr/bin/sqlite3','-readonly',path,query],timeout_seconds=20)
+
+if __name__=='__main__':
+    uvicorn.run(MCP.streamable_http_app(),host=HOST,port=PORT)

@@ -1,0 +1,7 @@
+{
+  "target_id": "SERVER-P620-WSL",
+  "display_name": "P620 Server MCP",
+  "root_helper": "/opt/p620-server-mcp/root_helper.py",
+  "auth_packages": "/opt/p620-server-mcp/packages",
+  "bind_port": 8792
+}

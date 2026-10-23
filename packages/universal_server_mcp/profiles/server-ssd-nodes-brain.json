@@ -1,0 +1,7 @@
+{
+  "target_id": "SERVER-SSD-NODES-BRAIN",
+  "display_name": "SSD Nodes Server MCP",
+  "root_helper": "/opt/ssd-server-mcp/root_helper.py",
+  "auth_packages": "/opt/ssd-server-mcp/packages",
+  "bind_port": 18795
+}
