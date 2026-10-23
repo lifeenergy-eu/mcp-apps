@@ -50,7 +50,7 @@ class SignedReleaseTests(unittest.TestCase):
         self.digests={key:hashlib.sha256(path.read_bytes()).hexdigest() for key,path in files.items()}
         self.state=self.root/"state";self.state.mkdir(mode=0o700)
         self.profile_target=self.root/"active-profile.json"
-    def ticket(self,action="install_v1"):
+    def ticket(self,action="install_v1",rollback_of=None):
         now=dt.datetime.now(dt.timezone.utc)
         ticket={
             "schema_version":"1.0","profile":mod.PROFILE,"ticket_id":"PB-UMCP-TEST"+os.urandom(8).hex().upper(),
@@ -60,6 +60,7 @@ class SignedReleaseTests(unittest.TestCase):
             "issued_at":(now-dt.timedelta(seconds=5)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "expires_at":(now+dt.timedelta(minutes=8)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "nonce":os.urandom(32).hex(),
+            "rollback_of":rollback_of,
             "payload_digests":self.digests,
         }
         ticket["signature"]=mod.openssl_sign(mod.canonical(ticket),self.priv)
@@ -92,6 +93,7 @@ class SignedReleaseTests(unittest.TestCase):
     def test_signed_install_and_independent_readback_without_live_services(self):
         ticket=self.ticket()
         readback=self.ticket("readback_v1")
+        rollback=self.ticket("rollback_v1",rollback_of=ticket["ticket_id"])
         original_run=subprocess.run
         def intercept(argv,*args,**kwargs):
             if argv[:2]==["/usr/bin/systemctl","restart"]:
@@ -120,6 +122,11 @@ class SignedReleaseTests(unittest.TestCase):
             self.assertEqual(check["observed_hashes"]["server.py"],self.digests["server.py"])
             decoded=base64.b64decode(check["signature"],validate=True)
             self.assertTrue(mod.openssl_check(mod.canonical({k:v for k,v in check.items() if k!="signature"}),decoded,self.pub))
+            restored=mod.run(rollback,self.source)
+            self.assertEqual(restored["status"],"PASS")
+            self.assertEqual(restored["action"],"rollback_v1")
+            self.assertEqual((self.root/"active"/"server.py").read_text(),"OLD_SOURCE_server.py\\n")
+            self.assertFalse(self.profile_target.exists())
 
 if __name__=="__main__":
     unittest.main()
