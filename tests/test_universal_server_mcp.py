@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Source-only acceptance for the unified four-host Server Management MCP."""
 import ast
+import base64
+import importlib.util
 import json
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -59,6 +62,34 @@ class UniversalServerMCPTest(unittest.TestCase):
         self.assertIn("AUTH_MODE == 'oauth_private'",s)
         self.assertIn("OAUTH_SCOPES == ['control.execute']",s)
         self.assertIn("PROFILE['target_id']",s)
+
+    def test_shared_executor_is_functional_in_isolated_directory(self):
+        module_path=BASE/"admin_executor.py"
+        spec=importlib.util.spec_from_file_location("universal_admin_devtest",module_path)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with tempfile.TemporaryDirectory(prefix="pb-universal-mcp-dev-") as tmp:
+            target=Path(tmp)/"probe.txt"
+            payload={"operation":"write_file","path":str(target),
+                     "data_base64":base64.b64encode(b"unified").decode(),"mode":0o600}
+            self.assertEqual(mod.execute(payload)["status"],"PASS")
+            self.assertEqual(target.read_bytes(),b"unified")
+            self.assertEqual(target.stat().st_mode & 0o777,0o600)
+            self.assertEqual(mod.execute({"operation":"remove","path":str(target)})["status"],"PASS")
+            self.assertFalse(target.exists())
+
+    def test_shared_executor_rejects_invalid_inputs(self):
+        module_path=BASE/"admin_executor.py"
+        spec=importlib.util.spec_from_file_location("universal_admin_negative",module_path)
+        mod=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        with self.assertRaises(mod.AdminError):
+            mod.execute({"operation":"remove","path":"/"})
+        with self.assertRaises(mod.AdminError):
+            mod.execute({"operation":"run","argv":[]})
+        with self.assertRaises(mod.AdminError):
+            mod.execute({"operation":"write_file","path":"/tmp/invalid",
+                         "data_base64":"not-base64$"})
 
     def test_root_helper_pinned_existing_protocol(self):
         s=(BASE/"root_helper.py").read_text()
