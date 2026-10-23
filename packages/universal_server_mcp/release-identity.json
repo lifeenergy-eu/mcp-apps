@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "component": "UNIFIED_SERVER_MANAGEMENT_MCP",
+  "source_ref": "packages/universal_server_mcp",
+  "targets": [
+    "SERVER-SSD-NODES-BRAIN",
+    "SERVER-NETCUP-MAGENTO",
+    "SERVER-NETCUP-WORDPRESS",
+    "SERVER-P620-WSL"
+  ],
+  "source_files": [
+    "server.py",
+    "admin_executor.py",
+    "root_helper.py"
+  ],
+  "tested_hosts": 4,
+  "tests_per_host": 7,
+  "release_scope": "SOURCE_REGISTRATION_NO_RUNTIME_SWITCH",
+  "production_deploy_authorized": false
+}
