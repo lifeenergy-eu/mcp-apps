@@ -56,7 +56,7 @@ def main():
         syslog.openlog(tag)
         syslog.syslog(syslog.LOG_AUTHPRIV|syslog.LOG_NOTICE,
                       f"target={profile['target_id']} operation={request.get('operation')} status={result.get('status')} request={request['request_id']}")
-    except (ValueError,KeyError,TypeError,OSError,Exception):
+    except Exception:
         result=fail()
     print(json.dumps(result,sort_keys=True))
     return 0 if result.get('status')=='PASS' else 2
