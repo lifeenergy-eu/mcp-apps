@@ -1,0 +1,7 @@
+{
+  "target_id": "SERVER-NETCUP-MAGENTO",
+  "display_name": "Netcup Magento Server MCP",
+  "root_helper": "/opt/netcup-magento-mcp/root_helper.py",
+  "auth_packages": "/opt/netcup-magento-mcp/source/packages",
+  "bind_port": 18793
+}
