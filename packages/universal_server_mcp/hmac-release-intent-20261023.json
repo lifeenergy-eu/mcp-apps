@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "component": "UNIFIED_SERVER_MANAGEMENT_MCP",
+  "source_owner": "lifeenergy-eu/mcp-apps",
+  "pre_sign_base_sha": "de0221481b5b8bd4542dc6db6a61573bce835198",
+  "source_package": "packages/universal_server_mcp",
+  "release_kind": "FOUR_TARGET_SIGNED_RUN_CORE_EXTERNAL_CONTINUATION",
+  "targets": [
+    "SERVER-SSD-NODES-BRAIN",
+    "SERVER-NETCUP-MAGENTO",
+    "SERVER-NETCUP-WORDPRESS",
+    "SERVER-P620-WSL"
+  ],
+  "tests_per_host": 16,
+  "tests_passed_on_hosts": 4,
+  "production_activation": false,
+  "signing_intent": "CANONICAL_HMAC_V2_EXACT_SHA_ADMISSION_ONLY"
+}
