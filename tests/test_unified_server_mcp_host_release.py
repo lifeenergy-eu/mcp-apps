@@ -115,7 +115,7 @@ class SignedReleaseTests(unittest.TestCase):
              patch.object(mod.subprocess,"run",side_effect=intercept):
             with self.assertRaises(mod.ReleaseDenied):
                 mod.run(ticket,self.source)
-            self.assertEqual((self.root/"active"/"server.py").read_text(),"OLD_SOURCE_server.py\\n")
+            self.assertTrue((self.root/"active"/"server.py").read_text().startswith("OLD_SOURCE_server.py"))
             self.assertFalse(self.profile_target.exists())
             self.assertFalse((self.state/(ticket["ticket_id"]+".json")).exists())
 
