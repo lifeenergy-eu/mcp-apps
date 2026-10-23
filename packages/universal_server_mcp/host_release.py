@@ -117,16 +117,21 @@ def verify_ticket(ticket,public,now=None):
     require(isinstance(ticket,dict),"UNIFIED_TICKET_TYPE_INVALID")
     names={"schema_version","profile","ticket_id","target_id","repository",
            "source_sha","action","issued_at","expires_at","nonce",
-           "payload_digests","signature"}
+           "payload_digests","rollback_of","signature"}
     require(set(ticket)==names and ticket["schema_version"]=="1.0"
             and ticket["profile"]==PROFILE,"UNIFIED_TICKET_SCHEMA_INVALID")
     require(ticket["target_id"] in TARGETS and ticket["repository"]==SOURCE
-            and ticket["action"] in ("install_v1","readback_v1"),
+            and ticket["action"] in ("install_v1","readback_v1","rollback_v1"),
             "UNIFIED_TICKET_TARGET_INVALID")
     require(isinstance(ticket["ticket_id"],str) and ID.fullmatch(ticket["ticket_id"])
             and isinstance(ticket["source_sha"],str) and SHA40.fullmatch(ticket["source_sha"])
             and isinstance(ticket["nonce"],str) and HEX64.fullmatch(ticket["nonce"]),
             "UNIFIED_TICKET_IDENTITY_INVALID")
+    if ticket["action"]=="rollback_v1":
+        require(isinstance(ticket["rollback_of"],str) and ID.fullmatch(ticket["rollback_of"]),
+                "UNIFIED_ROLLBACK_REF_INVALID")
+    else:
+        require(ticket["rollback_of"] is None,"UNIFIED_ROLLBACK_REF_UNEXPECTED")
     expected={"server.py","root_helper.py","admin_executor.py",
               TARGETS[ticket["target_id"]]["profile"]}
     hashes=ticket["payload_digests"]
@@ -243,6 +248,57 @@ def run(ticket,source):
                   "ticket_id":ticket["ticket_id"],"action":"readback_v1",
                   "observed_hashes":observed_before,"service_active":True,
                   "oauth_negative":True,"independent_readback":True}
+            receipt=signed_receipt(body)
+            atomic_write(receipt_path,canonical(receipt),0o600)
+            return receipt
+        if ticket["action"]=="rollback_v1":
+            install_id=ticket["rollback_of"]
+            install_receipt_path=state/(install_id+".json")
+            require(install_receipt_path.is_file() and
+                    not install_receipt_path.is_symlink(),
+                    "UNIFIED_ROLLBACK_RECEIPT_MISSING")
+            install=json.loads(install_receipt_path.read_text())
+            require(isinstance(install,dict) and install.get("status")=="PASS"
+                    and install.get("action")=="install_v1"
+                    and install.get("source_sha")==ticket["source_sha"]
+                    and install.get("target_id")==ticket["target_id"]
+                    and install.get("observed_hashes")==ticket["payload_digests"],
+                    "UNIFIED_ROLLBACK_SOURCE_MISMATCH")
+            require(observed_before==ticket["payload_digests"],
+                    "UNIFIED_ROLLBACK_CURRENT_SOURCE_DRIFT")
+            backup=state/install_id
+            require(backup.is_dir() and not backup.is_symlink()
+                    and backup.stat().st_uid==0
+                    and not backup.stat().st_mode&0o077,
+                    "UNIFIED_ROLLBACK_BACKUP_UNTRUSTED")
+            previous=install.get("previous_hashes")
+            require(isinstance(previous,dict),"UNIFIED_ROLLBACK_BASELINE_INVALID")
+            for name,path in destinations.items():
+                saved=backup/name
+                if name in previous:
+                    require(saved.is_file() and not saved.is_symlink()
+                            and digest(saved)==previous[name],
+                            "UNIFIED_ROLLBACK_BACKUP_DIGEST_MISMATCH")
+                elif name!=binding["profile"]:
+                    raise ReleaseDenied("UNIFIED_ROLLBACK_BASELINE_FILE_MISSING")
+            for name,path in destinations.items():
+                saved=backup/name
+                if saved.is_file():
+                    atomic_write(path,saved.read_bytes(),saved.stat().st_mode&0o777)
+                elif name==binding["profile"] and path.exists():
+                    path.unlink()
+            process=subprocess.run(["/usr/bin/systemctl","restart",binding["service"]],
+                                   capture_output=True,timeout=35,check=False)
+            require(process.returncode==0 and await_health(binding),
+                    "UNIFIED_ROLLBACK_SERVICE_HEALTH_FAILED")
+            observed={name:digest(p) for name,p in destinations.items() if p.exists()}
+            require(observed==previous,"UNIFIED_ROLLBACK_FINAL_DIGEST_MISMATCH")
+            body={"status":"PASS","target_id":ticket["target_id"],
+                  "source_sha":ticket["source_sha"],"ticket_id":ticket["ticket_id"],
+                  "action":"rollback_v1","rollback_of":install_id,
+                  "observed_hashes":observed,"service_active":True,
+                  "oauth_negative":True,"production_application_mutation":False,
+                  "production_database_mutation":False}
             receipt=signed_receipt(body)
             atomic_write(receipt_path,canonical(receipt),0o600)
             return receipt
