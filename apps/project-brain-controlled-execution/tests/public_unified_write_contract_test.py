@@ -18,9 +18,9 @@ class PublicUnifiedWriteContractTest(unittest.TestCase):
     def test_five_public_tools(self):
         self.assertIn('{"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop", "run_registered_task"}', self.source)
 
-    def test_matomo_task_bounded_to_registered_intent(self):
-        self.assertIn('task.get("intent_key") != "MARKETING_MATOMO_CAPTURE"', self.source)
-        self.assertIn('task.get("inputs") != {"window_days": 7}', self.source)
+    def test_task_authority_is_delegated_to_brain(self):
+        self.assertIn('REGISTERED_TASK_ENVELOPE_INVALID', self.source)
+        self.assertIn('REGISTERED_TASK_ENVELOPE_INVALID', self.source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', self.source)
 
     def test_existing_deploy_signature_unmodified(self):
