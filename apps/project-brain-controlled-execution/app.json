@@ -33,7 +33,8 @@
   "raw_sql": false,
   "raw_http": false,
   "tools": [
-    "brain_execute"
+    "brain_execute",
+    "run_registered_task"
   ],
   "public_ingress": {
     "mode": "DEDICATED_PATH_PHP_LOOPBACK_BRIDGE",
@@ -60,9 +61,11 @@
   "public_surface": {
     "single_execution_tool": "brain_execute",
     "legacy_tools_discoverable": false,
-    "legacy_actions": "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE_NO_EXECUTION",
+    "legacy_actions": "OTHER_LEGACY_TOOLS_HANDOFF_REQUIRED_NO_EXECUTION",
     "run_core_authority": "PROJECT-BRAIN-CONTROL-PLANE",
     "policy_ref": "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1",
-    "runtime_acceptance": "REQUIRES_NEW_EXACT_SHA_RELEASE_AND_LIVE_AUTHENTICATED_TOOLS_LIST_AND_RUN_CORE_E2E"
+    "runtime_acceptance": "REQUIRES_NEW_EXACT_SHA_RELEASE_AND_LIVE_AUTHENTICATED_TOOLS_LIST_AND_RUN_CORE_E2E",
+    "registered_business_task_tool": "run_registered_task",
+    "registered_business_task_scope": "MARKETING_MATOMO_CAPTURE_7_DAYS_ONLY"
   }
 }
