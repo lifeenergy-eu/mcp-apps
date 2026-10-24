@@ -11,7 +11,7 @@ class BrainControlledExecutionReleaseV011Test(unittest.TestCase):
         app = json.loads((ROOT / "apps/project-brain-controlled-execution/app.json").read_text(encoding="utf-8"))
         self.assertIn('VERSION = "0.1.2"', source)
         self.assertEqual(app["version"], "0.1.2")
-        self.assertEqual(app["tools"], ["brain_execute"])
+        self.assertEqual(app["tools"], ["brain_execute", "run_registered_task"])
         self.assertIn('tool.name in allowed', source)
         self.assertIn('body["primary_execution_tool"] = "brain_execute"', source)
         self.assertIn('body["public_execution_tool_count"] = 5', source)
