@@ -53,7 +53,7 @@ class PluginFastMCP(FastMCP):
         tools = await super().list_tools()
         # The Brain MCP exposes exactly one ChatGPT-facing execution tool.
         # Legacy handlers remain defined only to respond to stale tool callers.
-        allowed = {"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop"}
+        allowed = {"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop", "run_registered_task"}
         tools = [tool for tool in tools if tool.name in allowed]
         if AUTH_MODE != "oauth_private":
             return tools
@@ -124,8 +124,8 @@ def connector_health() -> dict[str, Any]:
     body["oauth_scopes"] = OAUTH_SCOPES
     body["mcp_path"] = "/mcp"
     body["primary_execution_tool"] = "brain_execute"
-    body["public_tools"] = ["brain_source_mutate", "brain_execute", "brain_operation_status", "brain_develop"]
-    body["public_execution_tool_count"] = 4
+    body["public_tools"] = ["brain_source_mutate", "brain_execute", "brain_operation_status", "brain_develop", "run_registered_task"]
+    body["public_execution_tool_count"] = 5
     body["legacy_write_tools"] = "HANDOFF_REQUIRED_USE_BRAIN_EXECUTE"
     body["canonical_deploy_policy_ref"] = "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1.canonical_delivery_pipeline_v1"
     return body
@@ -180,7 +180,13 @@ def run_registered_database_workflow(
 @mcp.tool(annotations=WRITE)
 def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str, Any]:
     """Send only a registered task intent to Project Brain; no runner, SHA, target or plan."""
-    return _legacy_handoff("RUN_REGISTERED_TASK")
+    if not isinstance(task, dict) or task.get("schema_version") != "1.0":
+        return {"status": "FAIL_CLOSED", "code": "REGISTERED_TASK_SCHEMA_INVALID", "execution_performed": False}
+    if task.get("intent_key") != "MARKETING_MATOMO_CAPTURE" or task.get("inputs") != {"window_days": 7}:
+        return {"status": "FAIL_CLOSED", "code": "PUBLIC_BUSINESS_TASK_NOT_EXPOSED", "execution_performed": False}
+    if not isinstance(wait_seconds, int) or not 0 <= wait_seconds <= 30:
+        return {"status": "FAIL_CLOSED", "code": "REGISTERED_TASK_WAIT_INVALID", "execution_performed": False}
+    return helper_call("RUN_REGISTERED_TASK", {"task": task, "wait_seconds": wait_seconds})
 
 @mcp.tool(annotations=WRITE)
 def brain_source_mutate(
