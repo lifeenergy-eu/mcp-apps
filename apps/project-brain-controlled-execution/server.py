@@ -182,8 +182,11 @@ def run_registered_task(task: dict[str, Any], wait_seconds: int = 8) -> dict[str
     """Send only a registered task intent to Project Brain; no runner, SHA, target or plan."""
     if not isinstance(task, dict) or task.get("schema_version") != "1.0":
         return {"status": "FAIL_CLOSED", "code": "REGISTERED_TASK_SCHEMA_INVALID", "execution_performed": False}
-    if task.get("intent_key") != "MARKETING_MATOMO_CAPTURE" or task.get("inputs") != {"window_days": 7}:
-        return {"status": "FAIL_CLOSED", "code": "PUBLIC_BUSINESS_TASK_NOT_EXPOSED", "execution_performed": False}
+    if (set(task) - {"schema_version", "task_id", "intent_key", "inputs", "result_mode"}
+            or not isinstance(task.get("task_id"), str)
+            or not isinstance(task.get("intent_key"), str)
+            or not isinstance(task.get("inputs"), dict)):
+        return {"status": "FAIL_CLOSED", "code": "REGISTERED_TASK_ENVELOPE_INVALID", "execution_performed": False}
     if not isinstance(wait_seconds, int) or not 0 <= wait_seconds <= 30:
         return {"status": "FAIL_CLOSED", "code": "REGISTERED_TASK_WAIT_INVALID", "execution_performed": False}
     return helper_call("RUN_REGISTERED_TASK", {"task": task, "wait_seconds": wait_seconds})
