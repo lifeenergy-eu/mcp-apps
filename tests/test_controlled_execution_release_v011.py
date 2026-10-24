@@ -14,8 +14,8 @@ class BrainControlledExecutionReleaseV011Test(unittest.TestCase):
         self.assertEqual(app["tools"], ["brain_execute"])
         self.assertIn('tool.name in allowed', source)
         self.assertIn('body["primary_execution_tool"] = "brain_execute"', source)
-        self.assertIn('body["public_execution_tool_count"] = 4', source)
-        self.assertIn('_legacy_handoff("RUN_REGISTERED_TASK")', source)
+        self.assertIn('body["public_execution_tool_count"] = 5', source)
+        self.assertIn('task.get("intent_key") != "MARKETING_MATOMO_CAPTURE"', source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', source)
         self.assertNotIn("shell=True", source)
 
