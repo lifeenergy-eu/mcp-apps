@@ -15,8 +15,13 @@ class PublicUnifiedWriteContractTest(unittest.TestCase):
         cls.tree = ast.parse(cls.source, filename=str(SOURCE))
         cls.defs = {n.name: n for n in cls.tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
-    def test_four_public_tools(self):
-        self.assertIn('{"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop"}', self.source)
+    def test_five_public_tools(self):
+        self.assertIn('{"brain_execute", "brain_source_mutate", "brain_operation_status", "brain_develop", "run_registered_task"}', self.source)
+
+    def test_matomo_task_bounded_to_registered_intent(self):
+        self.assertIn('task.get("intent_key") != "MARKETING_MATOMO_CAPTURE"', self.source)
+        self.assertIn('task.get("inputs") != {"window_days": 7}', self.source)
+        self.assertIn('helper_call("RUN_REGISTERED_TASK"', self.source)
 
     def test_existing_deploy_signature_unmodified(self):
         self.assertEqual([a.arg for a in self.defs["brain_execute"].args.args], ["repository", "commit_sha"])
