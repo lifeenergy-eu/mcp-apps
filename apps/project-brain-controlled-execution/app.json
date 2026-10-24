@@ -65,7 +65,7 @@
     "run_core_authority": "PROJECT-BRAIN-CONTROL-PLANE",
     "policy_ref": "control-plane/PROJECT_EXECUTION_POLICY.json#execution.commit_and_deploy.final_operating_model_v1",
     "runtime_acceptance": "REQUIRES_NEW_EXACT_SHA_RELEASE_AND_LIVE_AUTHENTICATED_TOOLS_LIST_AND_RUN_CORE_E2E",
-    "registered_business_task_tool": "run_registered_task",
-    "registered_business_task_scope": "MARKETING_MATOMO_CAPTURE_7_DAYS_ONLY"
+    "registered_business_task_scope": "ALL_CANONICALLY_REGISTERED_BRAIN_TASK_INTENTS",
+    "registered_task_tool": "run_registered_task"
   }
 }
