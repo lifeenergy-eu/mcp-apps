@@ -31,7 +31,7 @@ class ControlledExecutionSourceTests(unittest.TestCase):
         source = (ROOT / "apps/project-brain-controlled-execution/server.py").read_text()
         self.assertIn('def run_registered_task(task: dict[str, Any], wait_seconds: int = 8)', source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', source)
-        self.assertIn('return _legacy_handoff("RUN_REGISTERED_TASK")', source)
+        self.assertIn('task.get("intent_key") != "MARKETING_MATOMO_CAPTURE"', source)
         self.assertIn('tool.name in allowed', source)
         self.assertNotIn("shell=True", source)
 
