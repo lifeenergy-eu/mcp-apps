@@ -20,7 +20,7 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
         fn = next(node for node in self.tree.body
                   if isinstance(node, ast.FunctionDef) and node.name == "run_registered_task")
         self.assertEqual([arg.arg for arg in fn.args.args], ["task", "wait_seconds"])
-        self.assertIn('_legacy_handoff("RUN_REGISTERED_TASK")', ast.get_source_segment(self.source, fn))
+        self.assertIn('helper_call("RUN_REGISTERED_TASK"', ast.get_source_segment(self.source, fn))
 
     def test_brain_execute_is_intent_only(self):
         fn = next(node for node in self.tree.body
@@ -55,7 +55,6 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
             "deploy_registered_source": "DEPLOY_REGISTERED_SOURCE",
             "run_registered_application_workflow": "RUN_APPLICATION_WORKFLOW",
             "run_registered_database_workflow": "RUN_DATABASE_WORKFLOW",
-            "run_registered_task": "RUN_REGISTERED_TASK",
         }
         for name, action in actions.items():
             fn = next(node for node in self.tree.body
@@ -64,6 +63,7 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
             self.assertIn(f'_legacy_handoff("{action}")', body)
             self.assertNotIn("helper_call(", body)
         self.assertIn('"execution_performed": False', self.source)
+        self.assertIn('task.get("inputs") != {"window_days": 7}', self.source)
         self.assertIn('"next_tool": "brain_execute"', self.source)
 
     def test_no_shell_execution_or_raw_execution_tool(self):
