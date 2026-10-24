@@ -63,7 +63,7 @@ class ControlledExecutionSurfaceTest(unittest.TestCase):
             self.assertIn(f'_legacy_handoff("{action}")', body)
             self.assertNotIn("helper_call(", body)
         self.assertIn('"execution_performed": False', self.source)
-        self.assertIn('task.get("inputs") != {"window_days": 7}', self.source)
+        self.assertIn('REGISTERED_TASK_ENVELOPE_INVALID', self.source)
         self.assertIn('"next_tool": "brain_execute"', self.source)
 
     def test_no_shell_execution_or_raw_execution_tool(self):
