@@ -15,7 +15,7 @@ class BrainControlledExecutionReleaseV011Test(unittest.TestCase):
         self.assertIn('tool.name in allowed', source)
         self.assertIn('body["primary_execution_tool"] = "brain_execute"', source)
         self.assertIn('body["public_execution_tool_count"] = 5', source)
-        self.assertIn('task.get("intent_key") != "MARKETING_MATOMO_CAPTURE"', source)
+        self.assertIn('REGISTERED_TASK_ENVELOPE_INVALID', source)
         self.assertIn('helper_call("RUN_REGISTERED_TASK"', source)
         self.assertNotIn("shell=True", source)
 
