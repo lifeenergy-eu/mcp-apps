@@ -15,7 +15,7 @@ class ControlledExecutionSourceTests(unittest.TestCase):
         self.assertFalse(app["raw_sql"])
         self.assertFalse(app["caller_selected_runner"])
         self.assertEqual(app["oauth"]["scopes"], ["control.execute"])
-        self.assertEqual(app["tools"], ["brain_execute"])
+        self.assertEqual(app["tools"], ["brain_execute", "run_registered_task"])
         self.assertEqual(set(app["compatibility_tools"]), {
             "connector_health","deploy_registered_source","run_registered_application_workflow",
             "run_registered_database_workflow","run_registered_task","execution_status"
@@ -26,7 +26,7 @@ class ControlledExecutionSourceTests(unittest.TestCase):
     def test_named_task_uses_fixed_brain_helper_not_local_authority(self) -> None:
         app = json.loads((ROOT / "apps/project-brain-controlled-execution/app.json").read_text())
         self.assertIn("run_registered_task", app["compatibility_tools"])
-        self.assertEqual(app["tools"], ["brain_execute"])
+        self.assertEqual(app["tools"], ["brain_execute", "run_registered_task"])
         self.assertFalse(app["native_named_task"]["no_extra_authority"] is False)
         source = (ROOT / "apps/project-brain-controlled-execution/server.py").read_text()
         self.assertIn('def run_registered_task(task: dict[str, Any], wait_seconds: int = 8)', source)
