@@ -29,7 +29,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 ACCESS_TTL = 3600
-REFRESH_TTL = 30 * 24 * 3600
+REFRESH_TTL = 90 * 24 * 3600
 AUTH_CODE_TTL = 300
 PENDING_TTL = 600
 MAX_LOGIN_FAILURES = 5
@@ -268,6 +268,7 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
         access = secrets.token_urlsafe(48)
         refresh = secrets.token_urlsafe(48)
         with self._connect() as con:
+            con.execute("DELETE FROM tokens WHERE expires_at IS NOT NULL AND expires_at < ?", (now,))
             con.execute(
                 "INSERT INTO tokens(token_hash,kind,client_id,scopes_json,expires_at,resource) VALUES(?,?,?,?,?,?)",
                 (self._hash_token(access), "access", client_id, json.dumps(scopes), now + ACCESS_TTL, resource),
@@ -319,15 +320,38 @@ class PrivateOAuthProvider(OAuthAuthorizationServerProvider[StoredAuthorizationC
         self, client: OAuthClientInformationFull, refresh_token: RefreshToken, scopes: list[str]
     ) -> OAuthToken:
         token_hash = self._hash_token(refresh_token.token)
+        now = int(time.time())
+        access = secrets.token_urlsafe(48)
         with self._connect() as con:
             row = con.execute(
-                "SELECT resource FROM tokens WHERE token_hash=? AND kind='refresh'",
+                "SELECT client_id,resource,expires_at FROM tokens WHERE token_hash=? AND kind='refresh'",
                 (token_hash,),
             ).fetchone()
-            con.execute("DELETE FROM tokens WHERE token_hash=?", (token_hash,))
-        if not row:
-            raise TokenError("invalid_grant", "refresh token missing")
-        return self._issue_pair(str(client.client_id), scopes, str(row["resource"] or self.resource))
+            if (
+                not row
+                or row["client_id"] != client.client_id
+                or (row["expires_at"] and int(row["expires_at"]) < now)
+            ):
+                raise TokenError("invalid_grant", "refresh token missing")
+            con.execute("DELETE FROM tokens WHERE expires_at IS NOT NULL AND expires_at < ?", (now,))
+            con.execute(
+                "INSERT INTO tokens(token_hash,kind,client_id,scopes_json,expires_at,resource) VALUES(?,?,?,?,?,?)",
+                (
+                    self._hash_token(access),
+                    "access",
+                    str(client.client_id),
+                    json.dumps(scopes),
+                    now + ACCESS_TTL,
+                    str(row["resource"] or self.resource),
+                ),
+            )
+        return OAuthToken(
+            access_token=access,
+            token_type="Bearer",
+            expires_in=ACCESS_TTL,
+            scope=" ".join(scopes),
+            refresh_token=refresh_token.token,
+        )
 
     async def load_access_token(self, token: str) -> AccessToken | None:
         token_hash = self._hash_token(token)
